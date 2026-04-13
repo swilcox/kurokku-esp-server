@@ -1,0 +1,165 @@
+{{define "title"}}クロック — {{if .IsNew}}New Playlist{{else}}Edit {{.Playlist.ID}}{{end}}{{end}}
+
+{{define "content"}}
+<h1>{{if .IsNew}}New Playlist{{else}}Edit Playlist: {{.Playlist.Name}}{{end}}</h1>
+
+<div class="card">
+    <form method="POST" action="/admin/playlists/{{if .IsNew}}new{{else}}{{.Playlist.ID}}{{end}}" onsubmit="reindex()">
+        {{if .IsNew}}
+        <div class="form-group">
+            <label for="id">Playlist ID</label>
+            <input type="text" id="id" name="id" value="{{.Playlist.ID}}" required placeholder="living-room">
+        </div>
+        {{end}}
+
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" value="{{.Playlist.Name}}" placeholder="Living Room">
+        </div>
+
+        <div class="form-group">
+            <label>Entries</label>
+            <div id="entries">
+                {{range $i, $e := .Playlist.Entries}}
+                <div class="entry-row" data-index="{{$i}}">
+                    <div class="entry-reorder">
+                        <button type="button" class="btn btn-sm" onclick="moveUp(this)" title="Move up">&#9650;</button>
+                        <button type="button" class="btn btn-sm" onclick="moveDown(this)" title="Move down">&#9660;</button>
+                    </div>
+                    <span class="entry-position">{{inc $i}}</span>
+                    <div>
+                        <select name="entry_type_{{$i}}">
+                            <option value="clock" {{if eq $e.Widget.Type "clock"}}selected{{end}}>Clock</option>
+                            <option value="message" {{if eq $e.Widget.Type "message"}}selected{{end}}>Message</option>
+                            <option value="animation" {{if eq $e.Widget.Type "animation"}}selected{{end}}>Animation</option>
+                            <option value="alert" {{if eq $e.Widget.Type "alert"}}selected{{end}}>Alert</option>
+                        </select>
+                        <input type="text" name="entry_config_{{$i}}" value="{{entryConfig $e}}" placeholder="config (see help)" style="margin-top:0.25rem">
+                    </div>
+                    <div>
+                        <input type="number" name="entry_duration_{{$i}}" value="{{$e.DurationSec}}" min="1" style="width:5rem" title="Duration (seconds)">
+                        <span style="color:var(--text-muted);font-size:0.8rem">sec</span>
+                    </div>
+                    <div>
+                        <input type="text" name="entry_cron_{{$i}}" value="{{entryCron $e}}" placeholder="cron (optional)" style="width:8rem" title="Cron schedule (e.g. */15 * * * *)">
+                    </div>
+                    <div>
+                        <input type="text" name="entry_redis_key_{{$i}}" value="{{entryRedisKey $e}}" placeholder="redis key (optional)" style="width:10rem" title="Redis key for dynamic message text">
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.entry-row').remove(); reindex()">&#215;</button>
+                </div>
+                {{end}}
+            </div>
+            <button type="button" class="btn btn-sm" onclick="addEntry()" style="margin-top:0.5rem">+ Add Entry</button>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="btn btn-primary">{{if .IsNew}}Create Playlist{{else}}Save Changes{{end}}</button>
+            <a href="/admin/playlists" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-top:1rem">
+    <h2>Entry Config Reference</h2>
+    <table>
+        <thead><tr><th>Type</th><th>Config Format</th><th>Example</th></tr></thead>
+        <tbody>
+            <tr><td>clock</td><td><code>24h</code> or <code>12h</code></td><td><code>24h</code></td></tr>
+            <tr><td>message</td><td><code>text</code> or <code>text|speed_ms|repeats</code></td><td><code>Hello!|50|3</code></td></tr>
+            <tr><td>animation</td><td><code>pong</code>, <code>static</code>, <code>matrix</code></td><td><code>pong</code></td></tr>
+            <tr><td>alert</td><td>(empty &mdash; reads from Redis at display time)</td><td></td></tr>
+        </tbody>
+    </table>
+    <h2 style="margin-top:1rem">Schedule (Cron)</h2>
+    <p style="color:var(--text-muted);font-size:0.9rem">
+        Optional 5-field cron expression. When set, the entry is only included in the playlist during matching minutes.
+        Leave blank to always include.
+    </p>
+    <table>
+        <thead><tr><th>Expression</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>*/15 * * * *</code></td><td>Every 15 minutes</td></tr>
+            <tr><td><code>0 * * * *</code></td><td>At the top of every hour</td></tr>
+            <tr><td><code>0 9-17 * * 1-5</code></td><td>Every hour 9 AM&ndash;5 PM, weekdays</td></tr>
+            <tr><td><code>*/5 * * * *</code></td><td>Every 5 minutes</td></tr>
+        </tbody>
+    </table>
+    <h2 style="margin-top:1rem">Redis Key (Message only)</h2>
+    <p style="color:var(--text-muted);font-size:0.9rem">
+        For message widgets, optionally specify a Redis key. If the key has a value, it replaces the static message text.
+        Example: set config to <code>--&deg;F|50|2</code> and redis key to <code>kurokku:temperature</code>.
+    </p>
+</div>
+
+<script>
+let entryCount = {{len .Playlist.Entries}};
+
+function addEntry() {
+    const container = document.getElementById('entries');
+    const i = entryCount++;
+    const div = document.createElement('div');
+    div.className = 'entry-row';
+    div.dataset.index = i;
+    div.innerHTML = `
+        <div class="entry-reorder">
+            <button type="button" class="btn btn-sm" onclick="moveUp(this)" title="Move up">&#9650;</button>
+            <button type="button" class="btn btn-sm" onclick="moveDown(this)" title="Move down">&#9660;</button>
+        </div>
+        <span class="entry-position">${i + 1}</span>
+        <div>
+            <select name="entry_type_${i}">
+                <option value="clock">Clock</option>
+                <option value="message">Message</option>
+                <option value="animation">Animation</option>
+                <option value="alert">Alert</option>
+            </select>
+            <input type="text" name="entry_config_${i}" placeholder="config (see help)" style="margin-top:0.25rem">
+        </div>
+        <div>
+            <input type="number" name="entry_duration_${i}" value="30" min="1" style="width:5rem" title="Duration (seconds)">
+            <span style="color:var(--text-muted);font-size:0.8rem">sec</span>
+        </div>
+        <div>
+            <input type="text" name="entry_cron_${i}" placeholder="cron (optional)" style="width:8rem" title="Cron schedule">
+        </div>
+        <div>
+            <input type="text" name="entry_redis_key_${i}" placeholder="redis key (optional)" style="width:10rem" title="Redis key for dynamic message text">
+        </div>
+        <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.entry-row').remove(); reindex()">&#215;</button>
+    `;
+    container.appendChild(div);
+}
+
+function moveUp(btn) {
+    const row = btn.closest('.entry-row');
+    const prev = row.previousElementSibling;
+    if (prev) {
+        row.parentNode.insertBefore(row, prev);
+        reindex();
+    }
+}
+
+function moveDown(btn) {
+    const row = btn.closest('.entry-row');
+    const next = row.nextElementSibling;
+    if (next) {
+        row.parentNode.insertBefore(next, row);
+        reindex();
+    }
+}
+
+function reindex() {
+    document.querySelectorAll('#entries .entry-row').forEach((row, i) => {
+        row.dataset.index = i;
+        row.querySelector('.entry-position').textContent = i + 1;
+        // Update all input/select names to reflect new index
+        row.querySelectorAll('select, input').forEach(el => {
+            if (el.name) {
+                el.name = el.name.replace(/_\d+$/, '_' + i);
+            }
+        });
+    });
+}
+</script>
+{{end}}

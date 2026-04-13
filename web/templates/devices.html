@@ -1,0 +1,48 @@
+{{define "title"}}クロック — Devices{{end}}
+
+{{define "content"}}
+<div class="top-bar">
+    <h1>Devices</h1>
+    <a href="/admin/devices/new" class="btn btn-primary">Add Device</a>
+</div>
+
+{{if .Devices}}
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>ID</th>
+            <th>Display</th>
+            <th>Location</th>
+            <th>Brightness</th>
+            <th>Poll (ms)</th>
+            <th>Playlist</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Devices}}
+        <tr>
+            <td><a href="/admin/devices/{{.ID}}">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</a></td>
+            <td><code>{{.ID}}</code></td>
+            <td><span class="badge badge-muted">{{.DisplayType}}</span></td>
+            <td>{{.Location}}</td>
+            <td>{{.Brightness}}</td>
+            <td>{{.PollMs}}</td>
+            <td>{{if .PlaylistID}}<a href="/admin/playlists/{{.PlaylistID}}">{{.PlaylistID}}</a>{{else}}—{{end}}</td>
+            <td class="actions">
+                <a href="/admin/devices/{{.ID}}" class="btn btn-sm">Edit</a>
+                <button class="btn btn-danger btn-sm"
+                    hx-delete="/admin/devices/{{.ID}}"
+                    hx-confirm="Delete device {{.ID}}?"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML swap:0.3s">Delete</button>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<div class="empty-state">No devices configured yet.</div>
+{{end}}
+{{end}}

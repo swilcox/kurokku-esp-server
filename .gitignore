@@ -1,0 +1,4 @@
+kurokku-esp-server
+*.exe
+.env
+.claude/

@@ -1,0 +1,84 @@
+{{define "title"}}クロック — {{if .IsNew}}New Device{{else}}Edit {{.Device.ID}}{{end}}{{end}}
+
+{{define "content"}}
+<h1>{{if .IsNew}}New Device{{else}}Edit Device: {{.Device.ID}}{{end}}</h1>
+
+<div class="card">
+    <form method="POST" action="/admin/devices/{{if .IsNew}}new{{else}}{{.Device.ID}}{{end}}">
+        {{if .IsNew}}
+        <div class="form-group">
+            <label for="id">Device ID</label>
+            <input type="text" id="id" name="id" value="{{.Device.ID}}" required placeholder="esp32-001">
+        </div>
+        {{end}}
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" value="{{.Device.Name}}" placeholder="Living Room Clock">
+            </div>
+            <div class="form-group">
+                <label for="location">Location</label>
+                <input type="text" id="location" name="location" value="{{.Device.Location}}" placeholder="living room">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="display_type">Display Type</label>
+                <select id="display_type" name="display_type">
+                    <option value="max7219" {{if eq (printf "%s" .Device.DisplayType) "max7219"}}selected{{end}}>MAX7219 (32x8 pixel)</option>
+                    <option value="tm1637" {{if eq (printf "%s" .Device.DisplayType) "tm1637"}}selected{{end}}>TM1637 (4-digit 7-segment)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="playlist_id">Playlist</label>
+                <select id="playlist_id" name="playlist_id">
+                    <option value="">None</option>
+                    {{range .Playlists}}
+                    <option value="{{.ID}}" {{if eq .ID $.Device.PlaylistID}}selected{{end}}>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</option>
+                    {{end}}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="brightness">Brightness (0-15)</label>
+                <input type="number" id="brightness" name="brightness" value="{{.Device.Brightness}}" min="0" max="15">
+            </div>
+            <div class="form-group">
+                <label for="poll_ms">Poll Interval (ms)</label>
+                <input type="number" id="poll_ms" name="poll_ms" value="{{.Device.PollMs}}" min="1000" max="60000" step="1000">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="latitude">Latitude</label>
+                <input type="number" id="latitude" name="latitude" value="{{fmtFloat .Device.Latitude}}" step="0.0001" min="-90" max="90" placeholder="e.g. 40.7128">
+            </div>
+            <div class="form-group">
+                <label for="longitude">Longitude</label>
+                <input type="number" id="longitude" name="longitude" value="{{fmtFloat .Device.Longitude}}" step="0.0001" min="-180" max="180" placeholder="e.g. -74.0060">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="brightness_day">Day Brightness (0-15)</label>
+                <input type="number" id="brightness_day" name="brightness_day" value="{{.Device.BrightnessDay}}" min="0" max="15">
+            </div>
+            <div class="form-group">
+                <label for="brightness_night">Night Brightness (0-15)</label>
+                <input type="number" id="brightness_night" name="brightness_night" value="{{.Device.BrightnessNight}}" min="0" max="15">
+            </div>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="btn btn-primary">{{if .IsNew}}Create Device{{else}}Save Changes{{end}}</button>
+            <a href="/admin/devices" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{{end}}

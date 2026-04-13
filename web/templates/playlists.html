@@ -1,0 +1,42 @@
+{{define "title"}}クロック — Playlists{{end}}
+
+{{define "content"}}
+<div class="top-bar">
+    <h1>Playlists</h1>
+    <a href="/admin/playlists/new" class="btn btn-primary">Add Playlist</a>
+</div>
+
+{{if .Playlists}}
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>ID</th>
+            <th>Entries</th>
+            <th>Version</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Playlists}}
+        <tr>
+            <td><a href="/admin/playlists/{{.ID}}">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</a></td>
+            <td><code>{{.ID}}</code></td>
+            <td>{{len .Entries}}</td>
+            <td>v{{.Version}}</td>
+            <td class="actions">
+                <a href="/admin/playlists/{{.ID}}" class="btn btn-sm">Edit</a>
+                <button class="btn btn-danger btn-sm"
+                    hx-delete="/admin/playlists/{{.ID}}"
+                    hx-confirm="Delete playlist {{.ID}}?"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML swap:0.3s">Delete</button>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<div class="empty-state">No playlists created yet.</div>
+{{end}}
+{{end}}
