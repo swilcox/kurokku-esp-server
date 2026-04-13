@@ -31,8 +31,7 @@ Everything lives in Redis — device config, playlists, and ephemeral playlist s
 - `kurokku:playlist:{id}` — playlist JSON (includes entries)
 - `kurokku:playlists` — set of playlist IDs (index)
 - `device:{id}:playlist_state` — ephemeral cursor (index, started_at, version)
-- `kurokku:alerts` — list of pending alert texts
-- `kurokku:alert_notifications` — pub/sub channel for alert triggers
+- `kurokku:alert:<id>` — alert JSON (AlertConfig with message, priority, display_duration)
 
 ### Playlist Model
 
@@ -47,7 +46,7 @@ The server controls when to advance the playlist. On poll:
 
 ### Alert Flow
 
-External weather service pushes alerts onto `kurokku:alerts` (Redis list) and publishes to `kurokku:alert_notifications` (Redis pub/sub). On notification, server resets all devices to their alert widget position. The alert widget reads from the Redis list at resolve time — if no alerts exist, it falls back to clock for its duration.
+Alerts are stored as individual Redis keys at `kurokku:alert:<id>`, each containing a JSON `AlertConfig` (id, message, priority, display_duration, delete_after_display). The server detects changes via Redis keyspace notifications and resets all devices to their alert widget position. Multiple alerts are sorted by priority and concatenated. Low-priority alerts can be filtered by a cron schedule. If no alerts exist, the alert widget falls back to clock for its duration. The [nalssi](https://github.com/swilcox/nalssi) weather service can push temperature and alerts automatically.
 
 ### API
 

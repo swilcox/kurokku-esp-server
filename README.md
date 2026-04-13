@@ -105,10 +105,23 @@ curl -X PUT http://localhost:8080/api/v1/admin/devices/esp32-001 \
 
 ## Alert Integration
 
-An external weather service pushes alert text onto the `kurokku:alerts` Redis list and publishes a notification to the `kurokku:alert_notifications` channel. On notification, the server resets all device playlists to their alert widget position so the alert is displayed promptly.
+Alerts are stored as individual Redis keys at `kurokku:alert:<id>`, each containing a JSON object:
+
+```json
+{
+  "id": "tornado-warning",
+  "message": "TORNADO WARNING - Take shelter",
+  "priority": 1,
+  "display_duration": "15s",
+  "delete_after_display": false
+}
+```
+
+The server detects alert changes via Redis keyspace notifications and resets all device playlists to their alert widget position so alerts are displayed promptly. When multiple alerts are active, they are sorted by priority (lower = more urgent) and concatenated into a single scrolling message.
 
 ```bash
 # Example: push a weather alert via redis-cli
-redis-cli LPUSH kurokku:alerts "TORNADO WARNING - Take shelter"
-redis-cli PUBLISH kurokku:alert_notifications "new_alert"
+redis-cli SET kurokku:alert:tornado-warning '{"id":"tornado-warning","message":"TORNADO WARNING - Take shelter","priority":1,"display_duration":"15s","delete_after_display":false}'
 ```
+
+The [nalssi](https://github.com/swilcox/nalssi) weather service can push temperature data and weather alerts to kurokku automatically.
