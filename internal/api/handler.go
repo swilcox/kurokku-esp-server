@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/swilcox/kurokku-esp-server/internal/model"
 	"github.com/swilcox/kurokku-esp-server/internal/playlist"
@@ -89,7 +91,36 @@ func (h *Handler) handleDeviceInstruction(w http.ResponseWriter, r *http.Request
 		"has_instruction", hasInstruction,
 	)
 
+	h.recordDeviceStatus(ctx, deviceID, r.RemoteAddr, resp.Instruction)
+
 	h.jsonResponse(w, http.StatusOK, resp)
+}
+
+// recordDeviceStatus updates the device's LastSeen/LastInstruction. When the
+// resolver returns a nil instruction (no change), the prior LastInstruction is
+// preserved so the admin UI can keep showing what the device is actually
+// displaying.
+func (h *Handler) recordDeviceStatus(ctx context.Context, deviceID, remoteAddr string, instruction *model.Instruction) {
+	now := time.Now()
+	status := &model.DeviceStatus{
+		LastSeen:       now,
+		LastRemoteAddr: remoteAddr,
+	}
+	if instruction != nil {
+		status.LastInstruction = instruction
+		status.LastInstructionAt = now
+	} else {
+		prior, err := h.store.GetDeviceStatus(ctx, deviceID)
+		if err != nil {
+			h.logger.Warn("reading prior device status", "device_id", deviceID, "error", err)
+		} else if prior != nil {
+			status.LastInstruction = prior.LastInstruction
+			status.LastInstructionAt = prior.LastInstructionAt
+		}
+	}
+	if err := h.store.SetDeviceStatus(ctx, deviceID, status); err != nil {
+		h.logger.Warn("recording device status", "device_id", deviceID, "error", err)
+	}
 }
 
 func (h *Handler) handleListDevices(w http.ResponseWriter, r *http.Request) {

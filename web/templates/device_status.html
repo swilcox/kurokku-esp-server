@@ -1,0 +1,65 @@
+{{define "device_status"}}
+<div class="status-grid">
+    <div class="status-meta">
+        <div class="status-row">
+            <span class="status-label">Status</span>
+            <span class="badge badge-{{.StatusClass}}">{{.StatusLabel}}</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Last seen</span>
+            <span>{{if .HasStatus}}{{.LastSeenRel}}{{else}}never{{end}}</span>
+        </div>
+        {{if .HasStatus}}
+        <div class="status-row">
+            <span class="status-label">Remote</span>
+            <span class="mono">{{if .Status.LastRemoteAddr}}{{.Status.LastRemoteAddr}}{{else}}—{{end}}</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Widget</span>
+            <span>{{if .Status.LastInstruction}}<span class="badge badge-muted">{{.Status.LastInstruction.Type}}</span>{{if .WidgetDetail}} <span class="mono">{{.WidgetDetail}}</span>{{end}}{{else}}—{{end}}</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Sent</span>
+            <span>{{if .Status.LastInstruction}}{{.LastInstructionRel}}{{else}}—{{end}}</span>
+        </div>
+        {{end}}
+    </div>
+    <div class="virtual-display virtual-{{.Device.DisplayType}}">
+        {{if eq .VirtualMode "clock"}}
+            <div class="v-clock" data-format24h="{{.Format24h}}">--:--</div>
+        {{else if eq .VirtualMode "message"}}
+            {{if eq (printf "%s" .Device.DisplayType) "tm1637"}}
+                <div class="v-message-tm">{{.Text}}</div>
+            {{else}}
+                <div class="v-scroll" data-scroll-ms="{{.ScrollSpeedMs}}" data-repeats="{{.Repeats}}"><span>{{.Text}}</span></div>
+            {{end}}
+        {{else if eq .VirtualMode "animation"}}
+            <div class="v-animation">
+                <span class="v-anim-led"></span>
+                <span class="v-anim-name">{{if .Animation}}{{.Animation}}{{else}}animation{{end}}</span>
+            </div>
+        {{else}}
+            <div class="virtual-placeholder">
+                {{if .HasStatus}}{{if .Status.LastInstruction}}{{.Status.LastInstruction.Type}}{{else}}idle{{end}}{{else}}no data{{end}}
+            </div>
+        {{end}}
+    </div>
+</div>
+
+<div class="alerts-section">
+    <div class="status-label alerts-header">Active alerts{{if .ActiveAlerts}} ({{len .ActiveAlerts}}){{end}}</div>
+    {{if .ActiveAlerts}}
+    <ul class="alerts-list">
+        {{range .ActiveAlerts}}
+        <li class="alert-item">
+            <span class="badge badge-alert" title="priority">P{{.Priority}}</span>
+            <span class="alert-msg">{{.Message}}</span>
+            {{if .DisplayDurationStr}}<span class="alert-duration mono">{{.DisplayDurationStr}}</span>{{end}}
+        </li>
+        {{end}}
+    </ul>
+    {{else}}
+    <div class="alerts-empty">no alerts queued</div>
+    {{end}}
+</div>
+{{end}}

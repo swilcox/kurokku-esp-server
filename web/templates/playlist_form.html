@@ -3,6 +3,12 @@
 {{define "content"}}
 <h1>{{if .IsNew}}New Playlist{{else}}Edit Playlist: {{.Playlist.Name}}{{end}}</h1>
 
+{{if .Errors}}
+<div class="flash flash-error">
+    {{range .Errors}}<div>{{.}}</div>{{end}}
+</div>
+{{end}}
+
 <div class="card">
     <form method="POST" action="/admin/playlists/{{if .IsNew}}new{{else}}{{.Playlist.ID}}{{end}}" onsubmit="reindex()">
         {{if .IsNew}}
@@ -27,26 +33,77 @@
                         <button type="button" class="btn btn-sm" onclick="moveDown(this)" title="Move down">&#9660;</button>
                     </div>
                     <span class="entry-position">{{inc $i}}</span>
-                    <div>
-                        <select name="entry_type_{{$i}}">
-                            <option value="clock" {{if eq $e.Widget.Type "clock"}}selected{{end}}>Clock</option>
-                            <option value="message" {{if eq $e.Widget.Type "message"}}selected{{end}}>Message</option>
-                            <option value="animation" {{if eq $e.Widget.Type "animation"}}selected{{end}}>Animation</option>
-                            <option value="alert" {{if eq $e.Widget.Type "alert"}}selected{{end}}>Alert</option>
-                        </select>
-                        <input type="text" name="entry_config_{{$i}}" value="{{entryConfig $e}}" placeholder="config (see help)" style="margin-top:0.25rem">
+                    <div class="entry-body">
+                        <div class="entry-top">
+                            <div class="entry-field">
+                                <label>Type</label>
+                                <select name="entry_type_{{$i}}" onchange="onTypeChange(this)">
+                                    <option value="clock" {{if eq $e.Widget.Type "clock"}}selected{{end}}>Clock</option>
+                                    <option value="message" {{if eq $e.Widget.Type "message"}}selected{{end}}>Message</option>
+                                    <option value="animation" {{if eq $e.Widget.Type "animation"}}selected{{end}}>Animation</option>
+                                    <option value="alert" {{if eq $e.Widget.Type "alert"}}selected{{end}}>Alert</option>
+                                </select>
+                            </div>
+                            <div class="entry-field entry-field-duration">
+                                <label title="How long (seconds) the server keeps this entry active before advancing.">Duration (sec)</label>
+                                <input type="number" name="entry_duration_{{$i}}" value="{{$e.DurationSec}}" min="1">
+                            </div>
+                            <div class="entry-field">
+                                <label title="Optional 5-field cron. Entry only active during matching minutes.">Cron (optional)</label>
+                                <input type="text" name="entry_cron_{{$i}}" value="{{entryCron $e}}" placeholder="*/15 * * * *">
+                            </div>
+                            <button type="button" class="btn btn-danger btn-sm entry-delete" onclick="this.closest('.entry-row').remove(); reindex()" title="Remove entry">&#215;</button>
+                        </div>
+
+                        <div class="entry-panels">
+                            <div class="entry-panel panel-clock" {{if ne $e.Widget.Type "clock"}}hidden{{end}}>
+                                <div class="entry-field">
+                                    <label>Clock format</label>
+                                    <select name="entry_clock_24h_{{$i}}">
+                                        <option value="true" {{if $e.Widget.Format24h}}selected{{end}}>24-hour</option>
+                                        <option value="false" {{if not $e.Widget.Format24h}}selected{{end}}>12-hour</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="entry-panel panel-message" {{if ne $e.Widget.Type "message"}}hidden{{end}}>
+                                <div class="entry-field entry-field-wide">
+                                    <label title="Scrolled across the display. Overridden by Redis key value if set and present.">Message text</label>
+                                    <input type="text" name="entry_msg_text_{{$i}}" value="{{$e.Widget.Text}}" placeholder="Hello!">
+                                </div>
+                                <div class="entry-field">
+                                    <label title="Milliseconds per column of scroll. Lower = faster.">Scroll speed (ms/col)</label>
+                                    <input type="number" name="entry_msg_speed_{{$i}}" value="{{if $e.Widget.ScrollSpeedMs}}{{$e.Widget.ScrollSpeedMs}}{{end}}" min="1" placeholder="50">
+                                </div>
+                                <div class="entry-field">
+                                    <label title="Number of scroll passes. 0 = infinite.">Repeats</label>
+                                    <input type="number" name="entry_msg_repeats_{{$i}}" value="{{if gt $e.Widget.Repeats 0}}{{$e.Widget.Repeats}}{{else}}0{{end}}" min="0" placeholder="0">
+                                </div>
+                                <div class="entry-field entry-field-wide">
+                                    <label title="If set and key has a value, replaces the message text at display time.">Redis key (optional)</label>
+                                    <input type="text" name="entry_redis_key_{{$i}}" value="{{entryRedisKey $e}}" placeholder="kurokku:temperature">
+                                </div>
+                            </div>
+
+                            <div class="entry-panel panel-animation" {{if ne $e.Widget.Type "animation"}}hidden{{end}}>
+                                <div class="entry-field">
+                                    <label>Animation</label>
+                                    <select name="entry_anim_{{$i}}">
+                                        <option value="static" {{if eq $e.Widget.Animation "static"}}selected{{end}}>static</option>
+                                        <option value="pong" {{if eq $e.Widget.Animation "pong"}}selected{{end}}>pong</option>
+                                        <option value="matrix" {{if eq $e.Widget.Animation "matrix"}}selected{{end}}>matrix</option>
+                                        {{if and $e.Widget.Animation (ne $e.Widget.Animation "static") (ne $e.Widget.Animation "pong") (ne $e.Widget.Animation "matrix")}}
+                                        <option value="{{$e.Widget.Animation}}" selected>{{$e.Widget.Animation}} (custom)</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="entry-panel panel-alert" {{if ne $e.Widget.Type "alert"}}hidden{{end}}>
+                                <p class="entry-note">Alert content is read from Redis (<code>kurokku:alert:*</code>) at display time. Each alert supplies its own message duration; the Duration field above only controls when the server rotates to the next entry if no alerts are queued.</p>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <input type="number" name="entry_duration_{{$i}}" value="{{$e.DurationSec}}" min="1" style="width:5rem" title="Duration (seconds)">
-                        <span style="color:var(--text-muted);font-size:0.8rem">sec</span>
-                    </div>
-                    <div>
-                        <input type="text" name="entry_cron_{{$i}}" value="{{entryCron $e}}" placeholder="cron (optional)" style="width:8rem" title="Cron schedule (e.g. */15 * * * *)">
-                    </div>
-                    <div>
-                        <input type="text" name="entry_redis_key_{{$i}}" value="{{entryRedisKey $e}}" placeholder="redis key (optional)" style="width:10rem" title="Redis key for dynamic message text">
-                    </div>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.entry-row').remove(); reindex()">&#215;</button>
                 </div>
                 {{end}}
             </div>
@@ -61,20 +118,11 @@
 </div>
 
 <div class="card" style="margin-top:1rem">
-    <h2>Entry Config Reference</h2>
-    <table>
-        <thead><tr><th>Type</th><th>Config Format</th><th>Example</th></tr></thead>
-        <tbody>
-            <tr><td>clock</td><td><code>24h</code> or <code>12h</code></td><td><code>24h</code></td></tr>
-            <tr><td>message</td><td><code>text</code> or <code>text|speed_ms|repeats</code></td><td><code>Hello!|50|3</code></td></tr>
-            <tr><td>animation</td><td><code>pong</code>, <code>static</code>, <code>matrix</code></td><td><code>pong</code></td></tr>
-            <tr><td>alert</td><td>(empty &mdash; reads from Redis at display time)</td><td></td></tr>
-        </tbody>
-    </table>
-    <h2 style="margin-top:1rem">Schedule (Cron)</h2>
+    <h2>Schedule (Cron)</h2>
     <p style="color:var(--text-muted);font-size:0.9rem">
-        Optional 5-field cron expression. When set, the entry is only included in the playlist during matching minutes.
-        Leave blank to always include.
+        Optional 5-field cron expression (minute, hour, day-of-month, month, day-of-week). When set,
+        the entry is only included in the playlist during matching minutes. Leave blank to always include.
+        Invalid expressions are rejected on save.
     </p>
     <table>
         <thead><tr><th>Expression</th><th>Meaning</th></tr></thead>
@@ -85,50 +133,112 @@
             <tr><td><code>*/5 * * * *</code></td><td>Every 5 minutes</td></tr>
         </tbody>
     </table>
-    <h2 style="margin-top:1rem">Redis Key (Message only)</h2>
-    <p style="color:var(--text-muted);font-size:0.9rem">
-        For message widgets, optionally specify a Redis key. If the key has a value, it replaces the static message text.
-        Example: set config to <code>--&deg;F|50|2</code> and redis key to <code>kurokku:temperature</code>.
-    </p>
 </div>
 
-<script>
-let entryCount = {{len .Playlist.Entries}};
-
-function addEntry() {
-    const container = document.getElementById('entries');
-    const i = entryCount++;
-    const div = document.createElement('div');
-    div.className = 'entry-row';
-    div.dataset.index = i;
-    div.innerHTML = `
+<template id="entry-template">
+    <div class="entry-row" data-index="0">
         <div class="entry-reorder">
             <button type="button" class="btn btn-sm" onclick="moveUp(this)" title="Move up">&#9650;</button>
             <button type="button" class="btn btn-sm" onclick="moveDown(this)" title="Move down">&#9660;</button>
         </div>
-        <span class="entry-position">${i + 1}</span>
-        <div>
-            <select name="entry_type_${i}">
-                <option value="clock">Clock</option>
-                <option value="message">Message</option>
-                <option value="animation">Animation</option>
-                <option value="alert">Alert</option>
-            </select>
-            <input type="text" name="entry_config_${i}" placeholder="config (see help)" style="margin-top:0.25rem">
+        <span class="entry-position">1</span>
+        <div class="entry-body">
+            <div class="entry-top">
+                <div class="entry-field">
+                    <label>Type</label>
+                    <select name="entry_type_0" onchange="onTypeChange(this)">
+                        <option value="clock">Clock</option>
+                        <option value="message">Message</option>
+                        <option value="animation">Animation</option>
+                        <option value="alert">Alert</option>
+                    </select>
+                </div>
+                <div class="entry-field entry-field-duration">
+                    <label title="How long (seconds) the server keeps this entry active before advancing.">Duration (sec)</label>
+                    <input type="number" name="entry_duration_0" value="30" min="1">
+                </div>
+                <div class="entry-field">
+                    <label title="Optional 5-field cron. Entry only active during matching minutes.">Cron (optional)</label>
+                    <input type="text" name="entry_cron_0" placeholder="*/15 * * * *">
+                </div>
+                <button type="button" class="btn btn-danger btn-sm entry-delete" onclick="this.closest('.entry-row').remove(); reindex()" title="Remove entry">&#215;</button>
+            </div>
+
+            <div class="entry-panels">
+                <div class="entry-panel panel-clock">
+                    <div class="entry-field">
+                        <label>Clock format</label>
+                        <select name="entry_clock_24h_0">
+                            <option value="true" selected>24-hour</option>
+                            <option value="false">12-hour</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="entry-panel panel-message" hidden>
+                    <div class="entry-field entry-field-wide">
+                        <label title="Scrolled across the display. Overridden by Redis key value if set and present.">Message text</label>
+                        <input type="text" name="entry_msg_text_0" placeholder="Hello!">
+                    </div>
+                    <div class="entry-field">
+                        <label title="Milliseconds per column of scroll. Lower = faster.">Scroll speed (ms/col)</label>
+                        <input type="number" name="entry_msg_speed_0" min="1" placeholder="50">
+                    </div>
+                    <div class="entry-field">
+                        <label title="Number of scroll passes. 0 = infinite.">Repeats</label>
+                        <input type="number" name="entry_msg_repeats_0" min="0" value="0" placeholder="0">
+                    </div>
+                    <div class="entry-field entry-field-wide">
+                        <label title="If set and key has a value, replaces the message text at display time.">Redis key (optional)</label>
+                        <input type="text" name="entry_redis_key_0" placeholder="kurokku:temperature">
+                    </div>
+                </div>
+                <div class="entry-panel panel-animation" hidden>
+                    <div class="entry-field">
+                        <label>Animation</label>
+                        <select name="entry_anim_0">
+                            <option value="static" selected>static</option>
+                            <option value="pong">pong</option>
+                            <option value="matrix">matrix</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="entry-panel panel-alert" hidden>
+                    <p class="entry-note">Alert content is read from Redis (<code>kurokku:alert:*</code>) at display time. Each alert supplies its own message duration; the Duration field above only controls when the server rotates to the next entry if no alerts are queued.</p>
+                </div>
+            </div>
         </div>
-        <div>
-            <input type="number" name="entry_duration_${i}" value="30" min="1" style="width:5rem" title="Duration (seconds)">
-            <span style="color:var(--text-muted);font-size:0.8rem">sec</span>
-        </div>
-        <div>
-            <input type="text" name="entry_cron_${i}" placeholder="cron (optional)" style="width:8rem" title="Cron schedule">
-        </div>
-        <div>
-            <input type="text" name="entry_redis_key_${i}" placeholder="redis key (optional)" style="width:10rem" title="Redis key for dynamic message text">
-        </div>
-        <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.entry-row').remove(); reindex()">&#215;</button>
-    `;
-    container.appendChild(div);
+    </div>
+</template>
+
+<script>
+function addEntry() {
+    const tpl = document.getElementById('entry-template');
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    document.getElementById('entries').appendChild(node);
+    reindex();
+    applyTypeState(node);
+}
+
+function onTypeChange(sel) {
+    applyTypeState(sel.closest('.entry-row'));
+}
+
+function applyTypeState(row) {
+    const type = row.querySelector('select[name^="entry_type_"]').value;
+    row.querySelectorAll('.entry-panel').forEach(p => {
+        p.hidden = !p.classList.contains('panel-' + type);
+    });
+    const durInput = row.querySelector('input[name^="entry_duration_"]');
+    const durField = row.querySelector('.entry-field-duration');
+    if (type === 'alert') {
+        durInput.readOnly = true;
+        durField.classList.add('field-soft-disabled');
+        durField.title = 'Alert messages supply their own display duration; this value only controls server-side rotation when no alerts are queued.';
+    } else {
+        durInput.readOnly = false;
+        durField.classList.remove('field-soft-disabled');
+        durField.removeAttribute('title');
+    }
 }
 
 function moveUp(btn) {
@@ -153,13 +263,14 @@ function reindex() {
     document.querySelectorAll('#entries .entry-row').forEach((row, i) => {
         row.dataset.index = i;
         row.querySelector('.entry-position').textContent = i + 1;
-        // Update all input/select names to reflect new index
-        row.querySelectorAll('select, input').forEach(el => {
+        row.querySelectorAll('select, input, textarea').forEach(el => {
             if (el.name) {
                 el.name = el.name.replace(/_\d+$/, '_' + i);
             }
         });
     });
 }
+
+document.querySelectorAll('#entries .entry-row').forEach(applyTypeState);
 </script>
 {{end}}

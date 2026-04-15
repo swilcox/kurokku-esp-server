@@ -3,6 +3,18 @@
 {{define "content"}}
 <h1>{{if .IsNew}}New Device{{else}}Edit Device: {{.Device.ID}}{{end}}</h1>
 
+{{if not .IsNew}}
+<div class="card">
+    <div class="card-header"><h2>Status</h2></div>
+    <div id="device-status"
+         hx-get="/admin/devices/{{.Device.ID}}/status"
+         hx-trigger="load, every {{if ge .Device.PollMs 1000}}{{.Device.PollMs}}{{else}}5000{{end}}ms"
+         hx-swap="innerHTML">
+        {{template "device_status" .Status}}
+    </div>
+</div>
+{{end}}
+
 <div class="card">
     <form method="POST" action="/admin/devices/{{if .IsNew}}new{{else}}{{.Device.ID}}{{end}}">
         {{if .IsNew}}

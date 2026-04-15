@@ -106,6 +106,15 @@ type PlaylistState struct {
 	ForceAdvance    bool      `json:"force_advance,omitempty"`
 }
 
+// DeviceStatus captures the most recent observed state of a device, updated
+// on every poll. Stored in Redis at device:{id}:status.
+type DeviceStatus struct {
+	LastSeen          time.Time    `json:"last_seen"`
+	LastRemoteAddr    string       `json:"last_remote_addr,omitempty"`
+	LastInstruction   *Instruction `json:"last_instruction,omitempty"`
+	LastInstructionAt time.Time    `json:"last_instruction_at,omitempty"`
+}
+
 // AlertConfig matches the alert structure in led-kurokku-go.
 // Stored in Redis as kurokku:alert:<id>.
 type AlertConfig struct {

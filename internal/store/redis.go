@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/swilcox/kurokku-esp-server/internal/alert"
 	"github.com/swilcox/kurokku-esp-server/internal/model"
 )
 
@@ -19,8 +21,11 @@ func NewRedisStore(rdb *redis.Client) *RedisStore {
 
 func deviceKey(id string) string    { return fmt.Sprintf("kurokku:device:%s", id) }
 func playlistKey(id string) string  { return fmt.Sprintf("kurokku:playlist:%s", id) }
+func statusKey(id string) string    { return fmt.Sprintf("device:%s:status", id) }
 const deviceIndexKey = "kurokku:devices"
 const playlistIndexKey = "kurokku:playlists"
+
+const deviceStatusTTL = 7 * 24 * time.Hour
 
 // --- Devices ---
 
@@ -84,9 +89,41 @@ func (s *RedisStore) UpsertDevice(ctx context.Context, d *model.Device) error {
 func (s *RedisStore) DeleteDevice(ctx context.Context, id string) error {
 	pipe := s.rdb.Pipeline()
 	pipe.Del(ctx, deviceKey(id))
+	pipe.Del(ctx, statusKey(id))
 	pipe.SRem(ctx, deviceIndexKey, id)
 	_, err := pipe.Exec(ctx)
 	return err
+}
+
+// --- Alerts ---
+
+// ListActiveAlerts returns all currently stored alerts (kurokku:alert:*),
+// regardless of cron filtering. Useful for admin UIs that want to see the
+// full alert queue.
+func (s *RedisStore) ListActiveAlerts(ctx context.Context) ([]model.AlertConfig, error) {
+	return alert.FetchAlerts(ctx, s.rdb)
+}
+
+// --- Device Status ---
+
+func (s *RedisStore) GetDeviceStatus(ctx context.Context, id string) (*model.DeviceStatus, error) {
+	data, err := s.rdb.Get(ctx, statusKey(id)).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var st model.DeviceStatus
+	return &st, json.Unmarshal(data, &st)
+}
+
+func (s *RedisStore) SetDeviceStatus(ctx context.Context, id string, st *model.DeviceStatus) error {
+	data, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	return s.rdb.Set(ctx, statusKey(id), data, deviceStatusTTL).Err()
 }
 
 // --- Playlists ---
