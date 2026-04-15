@@ -47,7 +47,12 @@ func main() {
 	}
 
 	redisStore := store.NewRedisStore(rdb)
-	resolver := playlist.NewResolver(rdb, logger, cfg.LowPriorityAlertCron, cfg.LowPriorityThreshold)
+	resolver := playlist.NewResolver(rdb, logger, playlist.Options{
+		LowPriorityCron:        cfg.LowPriorityAlertCron,
+		LowPriorityThreshold:   cfg.LowPriorityThreshold,
+		TM1637AlertScrollSpeed: cfg.TM1637AlertScrollSpeed,
+		TM1637AlertRepeats:     cfg.TM1637AlertRepeats,
+	})
 
 	apiHandler := api.NewHandler(redisStore, resolver, logger)
 

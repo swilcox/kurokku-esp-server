@@ -23,7 +23,12 @@ func setupHandler(t *testing.T) (*Handler, *store.RedisStore) {
 	t.Cleanup(func() { rdb.Close() })
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	s := store.NewRedisStore(rdb)
-	r := playlist.NewResolver(rdb, logger, "* * * * *", 10)
+	r := playlist.NewResolver(rdb, logger, playlist.Options{
+		LowPriorityCron:        "* * * * *",
+		LowPriorityThreshold:   10,
+		TM1637AlertScrollSpeed: 150,
+		TM1637AlertRepeats:     3,
+	})
 	return NewHandler(s, r, logger), s
 }
 

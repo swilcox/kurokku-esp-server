@@ -19,6 +19,8 @@ Requires Redis for all state (config persistence and ephemeral playlist state). 
 |-----|---------|-------------|
 | `KUROKKU_LISTEN_ADDR` | `:8080` | HTTP listen address |
 | `KUROKKU_REDIS_ADDR` | `localhost:6379` | Redis address |
+| `KUROKKU_TM1637_ALERT_SCROLL_SPEED_MS` | `150` | Scroll speed (ms/col) for alert messages on tm1637 devices |
+| `KUROKKU_TM1637_ALERT_REPEATS` | `3` | Number of times alert messages repeat on tm1637 devices |
 
 ## Architecture
 

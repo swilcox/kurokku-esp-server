@@ -18,7 +18,12 @@ func setupResolver(t *testing.T) (*Resolver, *miniredis.Miniredis) {
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { rdb.Close() })
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	return NewResolver(rdb, logger, "* * * * *", 10), mr
+	return NewResolver(rdb, logger, Options{
+		LowPriorityCron:        "* * * * *",
+		LowPriorityThreshold:   10,
+		TM1637AlertScrollSpeed: 150,
+		TM1637AlertRepeats:     3,
+	}), mr
 }
 
 func makeDevice(id string) *model.Device {

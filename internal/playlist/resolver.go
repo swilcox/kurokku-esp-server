@@ -17,18 +17,29 @@ import (
 // Resolver determines what a device should display based on its
 // playlist and ephemeral Redis state.
 type Resolver struct {
-	rdb                  *redis.Client
-	logger               *slog.Logger
-	lowPriorityCron      string
-	lowPriorityThreshold int
+	rdb                    *redis.Client
+	logger                 *slog.Logger
+	lowPriorityCron        string
+	lowPriorityThreshold   int
+	tm1637AlertScrollSpeed int
+	tm1637AlertRepeats     int
 }
 
-func NewResolver(rdb *redis.Client, logger *slog.Logger, lowPriorityCron string, lowPriorityThreshold int) *Resolver {
+type Options struct {
+	LowPriorityCron        string
+	LowPriorityThreshold   int
+	TM1637AlertScrollSpeed int
+	TM1637AlertRepeats     int
+}
+
+func NewResolver(rdb *redis.Client, logger *slog.Logger, opts Options) *Resolver {
 	return &Resolver{
-		rdb:                  rdb,
-		logger:               logger,
-		lowPriorityCron:      lowPriorityCron,
-		lowPriorityThreshold: lowPriorityThreshold,
+		rdb:                    rdb,
+		logger:                 logger,
+		lowPriorityCron:        opts.LowPriorityCron,
+		lowPriorityThreshold:   opts.LowPriorityThreshold,
+		tm1637AlertScrollSpeed: opts.TM1637AlertScrollSpeed,
+		tm1637AlertRepeats:     opts.TM1637AlertRepeats,
 	}
 }
 
@@ -122,7 +133,7 @@ func (r *Resolver) Resolve(ctx context.Context, device *model.Device, playlist *
 		}
 
 		log.Debug("building instruction", "index", idx, "widget_type", entry.Widget.Type)
-		inst, err := r.buildInstruction(ctx, &entry)
+		inst, err := r.buildInstruction(ctx, device, &entry)
 		if err != nil {
 			return nil, err
 		}
@@ -208,12 +219,12 @@ func (r *Resolver) ResetToAlert(ctx context.Context, deviceID string, playlist *
 	return r.setState(ctx, deviceID, state)
 }
 
-func (r *Resolver) buildInstruction(ctx context.Context, entry *model.PlaylistEntry) (*model.Instruction, error) {
+func (r *Resolver) buildInstruction(ctx context.Context, device *model.Device, entry *model.PlaylistEntry) (*model.Instruction, error) {
 	w := &entry.Widget
 
 	switch w.Type {
 	case "alert":
-		return r.buildAlertInstruction(ctx, entry)
+		return r.buildAlertInstruction(ctx, device, entry)
 	case "message":
 		return r.buildMessageInstruction(ctx, entry)
 	default:
@@ -237,7 +248,7 @@ func (r *Resolver) buildMessageInstruction(ctx context.Context, entry *model.Pla
 	return inst, nil
 }
 
-func (r *Resolver) buildAlertInstruction(ctx context.Context, entry *model.PlaylistEntry) (*model.Instruction, error) {
+func (r *Resolver) buildAlertInstruction(ctx context.Context, device *model.Device, entry *model.PlaylistEntry) (*model.Instruction, error) {
 	allAlerts, err := alert.FetchAlerts(ctx, r.rdb)
 	if err != nil {
 		return nil, fmt.Errorf("fetching alerts from redis: %w", err)
@@ -258,12 +269,19 @@ func (r *Resolver) buildAlertInstruction(ctx context.Context, entry *model.Playl
 		return nil, nil
 	}
 
-	r.logger.Debug("alert instruction built", "text", ai.Text, "duration_sec", ai.DurationSec)
+	scrollSpeed := 50
+	repeats := 2
+	if device != nil && device.DisplayType == model.DisplayTM1637 {
+		scrollSpeed = r.tm1637AlertScrollSpeed
+		repeats = r.tm1637AlertRepeats
+	}
+
+	r.logger.Debug("alert instruction built", "text", ai.Text, "duration_sec", ai.DurationSec, "scroll_speed_ms", scrollSpeed, "repeats", repeats)
 	return &model.Instruction{
 		Type:          "message",
 		Text:          ai.Text,
-		ScrollSpeedMs: 50,
-		Repeats:       2,
+		ScrollSpeedMs: scrollSpeed,
+		Repeats:       repeats,
 		DurationSecs:  ai.DurationSec,
 	}, nil
 }
