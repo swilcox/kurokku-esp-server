@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -22,6 +23,7 @@ type WebHandler struct {
 	logger       *slog.Logger
 	tmpls        map[string]*template.Template
 	fragmentTmpl *template.Template
+	firmwareTmpl *template.Template
 	templateDir  string
 	mux          *http.ServeMux
 }
@@ -63,7 +65,7 @@ func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir str
 	for _, page := range pages {
 		files := []string{layoutFile, templateDir + "/" + page}
 		if page == "device_form.html" {
-			files = append(files, templateDir+"/device_status.html")
+			files = append(files, templateDir+"/device_status.html", templateDir+"/firmware_card.html")
 		}
 		t, err := template.New("").Funcs(funcMap).ParseFiles(files...)
 		if err != nil {
@@ -77,6 +79,12 @@ func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir str
 		return nil, fmt.Errorf("parsing device_status fragment: %w", err)
 	}
 	w.fragmentTmpl = ft
+
+	ft2, err := template.New("").Funcs(funcMap).ParseFiles(templateDir + "/firmware_card.html")
+	if err != nil {
+		return nil, fmt.Errorf("parsing firmware_card fragment: %w", err)
+	}
+	w.firmwareTmpl = ft2
 
 	w.registerRoutes()
 	return w, nil
@@ -97,6 +105,9 @@ func (w *WebHandler) registerRoutes() {
 	w.mux.HandleFunc("POST /admin/devices/{id}", w.handleDeviceUpdate)
 	w.mux.HandleFunc("DELETE /admin/devices/{id}", w.handleDeviceDelete)
 	w.mux.HandleFunc("GET /admin/devices/{id}/status", w.handleDeviceStatus)
+	w.mux.HandleFunc("GET /admin/devices/{id}/firmware", w.handleFirmwareCard)
+	w.mux.HandleFunc("POST /admin/devices/{id}/ota", w.handleOTATrigger)
+	w.mux.HandleFunc("DELETE /admin/devices/{id}/ota", w.handleOTACancel)
 
 	w.mux.HandleFunc("GET /admin/playlists", w.handlePlaylistsList)
 	w.mux.HandleFunc("GET /admin/playlists/new", w.handlePlaylistNew)
@@ -169,6 +180,7 @@ func (w *WebHandler) handleDeviceEdit(rw http.ResponseWriter, r *http.Request) {
 		"Device":    device,
 		"Playlists": playlists,
 		"Status":    buildStatusView(device, status, alerts, time.Now()),
+		"Firmware":  w.buildFirmwareView(ctx, device, status, time.Now()),
 	})
 }
 
@@ -193,6 +205,98 @@ func (w *WebHandler) handleDeviceStatus(rw http.ResponseWriter, r *http.Request)
 	}
 }
 
+// firmwareView is the template data for the firmware_card fragment.
+type firmwareView struct {
+	Device         *model.Device
+	RunningVersion string
+	DefaultURL     string
+	Pending        *model.PendingOTA
+	PendingRel     string
+}
+
+func (w *WebHandler) buildFirmwareView(ctx context.Context, device *model.Device, status *model.DeviceStatus, now time.Time) firmwareView {
+	v := firmwareView{Device: device}
+	if status != nil {
+		v.RunningVersion = status.FirmwareVersion
+	}
+	v.DefaultURL, _ = w.store.GetFirmwareURL(ctx, string(device.DisplayType))
+	if pending, _ := w.store.PeekOTA(ctx, device.ID); pending != nil {
+		v.Pending = pending
+		v.PendingRel = relativeTime(pending.QueuedAt, now)
+	}
+	return v
+}
+
+func (w *WebHandler) renderFirmwareCard(rw http.ResponseWriter, view firmwareView) {
+	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := w.firmwareTmpl.ExecuteTemplate(rw, "firmware_card", view); err != nil {
+		w.logger.Error("rendering firmware_card fragment", "device_id", view.Device.ID, "error", err)
+		http.Error(rw, "template error", http.StatusInternalServerError)
+	}
+}
+
+func (w *WebHandler) handleFirmwareCard(rw http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	ctx := r.Context()
+	device, err := w.store.GetDevice(ctx, id)
+	if err != nil || device == nil {
+		http.Error(rw, "not found", http.StatusNotFound)
+		return
+	}
+	status, _ := w.store.GetDeviceStatus(ctx, id)
+	w.renderFirmwareCard(rw, w.buildFirmwareView(ctx, device, status, time.Now()))
+}
+
+func (w *WebHandler) handleOTATrigger(rw http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	ctx := r.Context()
+	device, err := w.store.GetDevice(ctx, id)
+	if err != nil || device == nil {
+		http.Error(rw, "not found", http.StatusNotFound)
+		return
+	}
+
+	r.ParseForm()
+	url := strings.TrimSpace(r.FormValue("url"))
+	if !isValidFirmwareURL(url) {
+		http.Error(rw, "invalid url", http.StatusBadRequest)
+		return
+	}
+
+	if r.FormValue("save_default") == "1" {
+		if err := w.store.SetFirmwareURL(ctx, string(device.DisplayType), url); err != nil {
+			w.logger.Error("saving firmware default url", "device_id", id, "error", err)
+		}
+	}
+
+	if err := w.store.QueueOTA(ctx, id, url); err != nil {
+		w.logger.Error("queueing OTA", "device_id", id, "error", err)
+		http.Error(rw, "could not queue OTA", http.StatusInternalServerError)
+		return
+	}
+	w.logger.Info("OTA queued", "device_id", id, "url", url)
+
+	status, _ := w.store.GetDeviceStatus(ctx, id)
+	w.renderFirmwareCard(rw, w.buildFirmwareView(ctx, device, status, time.Now()))
+}
+
+func (w *WebHandler) handleOTACancel(rw http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	ctx := r.Context()
+	device, err := w.store.GetDevice(ctx, id)
+	if err != nil || device == nil {
+		http.Error(rw, "not found", http.StatusNotFound)
+		return
+	}
+	if err := w.store.CancelOTA(ctx, id); err != nil {
+		w.logger.Error("cancelling OTA", "device_id", id, "error", err)
+		http.Error(rw, "could not cancel", http.StatusInternalServerError)
+		return
+	}
+	status, _ := w.store.GetDeviceStatus(ctx, id)
+	w.renderFirmwareCard(rw, w.buildFirmwareView(ctx, device, status, time.Now()))
+}
+
 // deviceStatusView is the template data for the status fragment.
 type deviceStatusView struct {
 	Device             *model.Device
@@ -202,6 +306,7 @@ type deviceStatusView struct {
 	StatusLabel        string // "Online", "Idle", "Offline", "Never seen"
 	LastSeenRel        string
 	LastInstructionRel string
+	LastOtaRel         string
 	WidgetDetail       string
 
 	// Virtual display inputs. VirtualMode is "clock", "message", "animation",
@@ -252,6 +357,9 @@ func buildStatusView(device *model.Device, status *model.DeviceStatus, alerts []
 	}
 
 	v.LastSeenRel = relativeTime(status.LastSeen, now)
+	if !status.LastOtaAt.IsZero() {
+		v.LastOtaRel = relativeTime(status.LastOtaAt, now)
+	}
 	if inst := status.LastInstruction; inst != nil {
 		v.LastInstructionRel = relativeTime(status.LastInstructionAt, now)
 		v.WidgetDetail = instructionDetail(inst)
@@ -385,6 +493,15 @@ func (w *WebHandler) deviceFromForm(r *http.Request) *model.Device {
 	if lonStr := r.FormValue("longitude"); lonStr != "" {
 		if lon, err := strconv.ParseFloat(lonStr, 64); err == nil {
 			d.Longitude = &lon
+		}
+	}
+
+	if cronStr := strings.TrimSpace(r.FormValue("low_priority_alert_cron")); cronStr != "" {
+		d.LowPriorityAlertCron = &cronStr
+	}
+	if threshStr := strings.TrimSpace(r.FormValue("low_priority_threshold")); threshStr != "" {
+		if n, err := strconv.Atoi(threshStr); err == nil {
+			d.LowPriorityThreshold = &n
 		}
 	}
 

@@ -34,6 +34,8 @@ Everything lives in Redis — device config, playlists, and ephemeral playlist s
 - `kurokku:playlists` — set of playlist IDs (index)
 - `device:{id}:playlist_state` — ephemeral cursor (index, started_at, version)
 - `kurokku:alert:<id>` — alert JSON (AlertConfig with message, priority, display_duration)
+- `kurokku:ota_pending:{id}` — admin-queued OTA command (JSON `{url, queued_at}`), TTL 10 min, consumed via GETDEL on next device poll
+- `kurokku:firmware:{display_type}` — default firmware URL for a display type (admin-editable)
 
 ### Playlist Model
 
@@ -50,11 +52,17 @@ The server controls when to advance the playlist. On poll:
 
 Alerts are stored as individual Redis keys at `kurokku:alert:<id>`, each containing a JSON `AlertConfig` (id, message, priority, display_duration, delete_after_display). The server detects changes via Redis keyspace notifications and resets all devices to their alert widget position. Multiple alerts are sorted by priority and concatenated. Low-priority alerts can be filtered by a cron schedule. If no alerts are active (after filtering), the alert entry is skipped and the resolver advances to the next playlist entry. The [nalssi](https://github.com/swilcox/nalssi) weather service can push temperature and alerts automatically.
 
+### OTA Flow
+
+OTA is an out-of-band one-shot command, not a playlist entry. Admin queues via the UI or JSON API; the device poll handler calls `PopOTA` (GETDEL) before the resolver. If pending, the server returns `{type:"ota", url}` and skips playlist resolution. The device downloads, flashes, and reboots; on next poll the pending key is gone and normal playlist resumes. If the device is offline, the TTL drops the command after ~10 minutes.
+
+Devices report their running firmware version on each poll via `?firmware_version=...`, captured into `DeviceStatus.FirmwareVersion` and shown in the admin UI. Note: the firmware sends `+` literally in the semver build-metadata separator, which Go's `url.Query()` decodes as space, so the handler normalizes spaces back to `+`.
+
 ### API
 
 #### Device Polling (ESP firmware contract)
 ```
-GET /api/v1/devices/{device_id}/instruction?display_type=max7219
+GET /api/v1/devices/{device_id}/instruction?display_type=max7219&firmware_version=0.1.0+abc123
 ```
 
 #### Admin CRUD
@@ -63,6 +71,14 @@ GET/PUT/DELETE /api/v1/admin/devices/{device_id}
 GET            /api/v1/admin/devices
 GET/PUT/DELETE /api/v1/admin/playlists/{playlist_id}
 GET            /api/v1/admin/playlists
+```
+
+#### OTA
+```
+POST   /api/v1/admin/devices/{device_id}/ota    body {"url": "..."} — queue OTA (10 min TTL)
+DELETE /api/v1/admin/devices/{device_id}/ota    — cancel pending OTA
+GET    /api/v1/admin/firmware/{display_type}    — get saved default URL
+PUT    /api/v1/admin/firmware/{display_type}    body {"url": "..."} — set/clear default URL
 ```
 
 ### Modules

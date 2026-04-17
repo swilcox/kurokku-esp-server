@@ -19,13 +19,19 @@ func NewRedisStore(rdb *redis.Client) *RedisStore {
 	return &RedisStore{rdb: rdb}
 }
 
-func deviceKey(id string) string    { return fmt.Sprintf("kurokku:device:%s", id) }
-func playlistKey(id string) string  { return fmt.Sprintf("kurokku:playlist:%s", id) }
-func statusKey(id string) string    { return fmt.Sprintf("device:%s:status", id) }
+func deviceKey(id string) string     { return fmt.Sprintf("kurokku:device:%s", id) }
+func playlistKey(id string) string   { return fmt.Sprintf("kurokku:playlist:%s", id) }
+func statusKey(id string) string     { return fmt.Sprintf("device:%s:status", id) }
+func otaPendingKey(id string) string { return fmt.Sprintf("kurokku:ota_pending:%s", id) }
+func firmwareKey(displayType string) string {
+	return fmt.Sprintf("kurokku:firmware:%s", displayType)
+}
+
 const deviceIndexKey = "kurokku:devices"
 const playlistIndexKey = "kurokku:playlists"
 
 const deviceStatusTTL = 7 * 24 * time.Hour
+const otaPendingTTL = 10 * time.Minute
 
 // --- Devices ---
 
@@ -90,9 +96,83 @@ func (s *RedisStore) DeleteDevice(ctx context.Context, id string) error {
 	pipe := s.rdb.Pipeline()
 	pipe.Del(ctx, deviceKey(id))
 	pipe.Del(ctx, statusKey(id))
+	pipe.Del(ctx, otaPendingKey(id))
 	pipe.SRem(ctx, deviceIndexKey, id)
 	_, err := pipe.Exec(ctx)
 	return err
+}
+
+// --- OTA ---
+
+// QueueOTA stores a pending OTA command for a device. The command is
+// consumed (GETDEL) on the device's next poll. Overwrites any prior
+// pending command.
+func (s *RedisStore) QueueOTA(ctx context.Context, deviceID, url string) error {
+	data, err := json.Marshal(&model.PendingOTA{URL: url, QueuedAt: time.Now()})
+	if err != nil {
+		return err
+	}
+	return s.rdb.Set(ctx, otaPendingKey(deviceID), data, otaPendingTTL).Err()
+}
+
+// PeekOTA returns the pending OTA for a device without consuming it, or
+// nil if none is queued.
+func (s *RedisStore) PeekOTA(ctx context.Context, deviceID string) (*model.PendingOTA, error) {
+	data, err := s.rdb.Get(ctx, otaPendingKey(deviceID)).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var p model.PendingOTA
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// PopOTA atomically reads and deletes the pending OTA for a device, so it
+// is dispatched exactly once. Returns nil if none is queued.
+func (s *RedisStore) PopOTA(ctx context.Context, deviceID string) (*model.PendingOTA, error) {
+	data, err := s.rdb.GetDel(ctx, otaPendingKey(deviceID)).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var p model.PendingOTA
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// CancelOTA removes any pending OTA for a device.
+func (s *RedisStore) CancelOTA(ctx context.Context, deviceID string) error {
+	return s.rdb.Del(ctx, otaPendingKey(deviceID)).Err()
+}
+
+// --- Firmware URLs ---
+
+// GetFirmwareURL returns the saved default firmware URL for a display
+// type, or the empty string if none is set.
+func (s *RedisStore) GetFirmwareURL(ctx context.Context, displayType string) (string, error) {
+	v, err := s.rdb.Get(ctx, firmwareKey(displayType)).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	return v, err
+}
+
+// SetFirmwareURL stores a default firmware URL for a display type. An
+// empty url clears the entry.
+func (s *RedisStore) SetFirmwareURL(ctx context.Context, displayType, url string) error {
+	if url == "" {
+		return s.rdb.Del(ctx, firmwareKey(displayType)).Err()
+	}
+	return s.rdb.Set(ctx, firmwareKey(displayType), url, 0).Err()
 }
 
 // --- Alerts ---

@@ -13,6 +13,16 @@
         {{template "device_status" .Status}}
     </div>
 </div>
+
+<div class="card">
+    <div class="card-header"><h2>Firmware Update</h2></div>
+    <div id="firmware-card"
+         hx-get="/admin/devices/{{.Device.ID}}/firmware"
+         hx-trigger="every {{if ge .Device.PollMs 1000}}{{.Device.PollMs}}{{else}}5000{{end}}ms"
+         hx-swap="innerHTML">
+        {{template "firmware_card" .Firmware}}
+    </div>
+</div>
 {{end}}
 
 <div class="card">
@@ -84,6 +94,22 @@
             <div class="form-group">
                 <label for="brightness_night">Night Brightness (0-15)</label>
                 <input type="number" id="brightness_night" name="brightness_night" value="{{.Device.BrightnessNight}}" min="0" max="15">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="low_priority_alert_cron">Low-Priority Alert Cron (optional)</label>
+                <input type="text" id="low_priority_alert_cron" name="low_priority_alert_cron"
+                       value="{{if .Device.LowPriorityAlertCron}}{{.Device.LowPriorityAlertCron}}{{end}}"
+                       placeholder="leave blank to use server default">
+            </div>
+            <div class="form-group">
+                <label for="low_priority_threshold">Low-Priority Threshold (optional)</label>
+                <input type="number" id="low_priority_threshold" name="low_priority_threshold"
+                       value="{{if .Device.LowPriorityThreshold}}{{.Device.LowPriorityThreshold}}{{end}}"
+                       min="0" max="10"
+                       placeholder="server default">
             </div>
         </div>
 

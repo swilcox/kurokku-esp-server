@@ -22,6 +22,16 @@
             <span class="status-label">Sent</span>
             <span>{{if .Status.LastInstruction}}{{.LastInstructionRel}}{{else}}—{{end}}</span>
         </div>
+        <div class="status-row">
+            <span class="status-label">Firmware</span>
+            <span class="mono">{{if .Status.FirmwareVersion}}{{.Status.FirmwareVersion}}{{else}}—{{end}}</span>
+        </div>
+        {{if .Status.LastOtaURL}}
+        <div class="status-row">
+            <span class="status-label">Last OTA</span>
+            <span><span class="mono">{{.LastOtaRel}}</span></span>
+        </div>
+        {{end}}
         {{end}}
     </div>
     <div class="virtual-display virtual-{{.Device.DisplayType}}">

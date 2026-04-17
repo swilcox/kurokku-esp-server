@@ -23,8 +23,12 @@ type Device struct {
 	BrightnessNight int         `json:"brightness_night" db:"brightness_night"`
 	PollMs          int         `json:"poll_ms" db:"poll_ms"`
 	PlaylistID  string      `json:"playlist_id" db:"playlist_id"`
-	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
+	// LowPriorityAlertCron / LowPriorityThreshold override the server-wide
+	// low-priority alert gating when set. Nil falls back to the Resolver default.
+	LowPriorityAlertCron *string   `json:"low_priority_alert_cron,omitempty" db:"low_priority_alert_cron"`
+	LowPriorityThreshold *int      `json:"low_priority_threshold,omitempty" db:"low_priority_threshold"`
+	CreatedAt            time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // Playlist is an ordered list of widget entries that cycle on a device.
@@ -113,6 +117,17 @@ type DeviceStatus struct {
 	LastRemoteAddr    string       `json:"last_remote_addr,omitempty"`
 	LastInstruction   *Instruction `json:"last_instruction,omitempty"`
 	LastInstructionAt time.Time    `json:"last_instruction_at,omitempty"`
+	FirmwareVersion   string       `json:"firmware_version,omitempty"`
+	LastOtaAt         time.Time    `json:"last_ota_at,omitempty"`
+	LastOtaURL        string       `json:"last_ota_url,omitempty"`
+}
+
+// PendingOTA is an admin-queued OTA command for a device. Stored in Redis
+// at kurokku:ota_pending:{device_id} with a short TTL. Consumed (GETDEL)
+// by the device poll handler and converted to an "ota" instruction.
+type PendingOTA struct {
+	URL      string    `json:"url"`
+	QueuedAt time.Time `json:"queued_at"`
 }
 
 // AlertConfig matches the alert structure in led-kurokku-go.

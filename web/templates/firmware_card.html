@@ -1,0 +1,47 @@
+{{define "firmware_card"}}
+<div class="firmware-meta">
+    <div class="status-row">
+        <span class="status-label">Running</span>
+        <span class="mono">{{if .RunningVersion}}{{.RunningVersion}}{{else}}unknown{{end}}</span>
+    </div>
+    <div class="status-row">
+        <span class="status-label">Default URL for {{.Device.DisplayType}}</span>
+        <span class="mono">{{if .DefaultURL}}{{.DefaultURL}}{{else}}—{{end}}</span>
+    </div>
+</div>
+
+{{if .Pending}}
+<div class="pending-banner">
+    <div>
+        <strong>Pending OTA</strong> — queued {{.PendingRel}}<br>
+        <span class="mono">{{.Pending.URL}}</span>
+    </div>
+    <button type="button" class="btn btn-danger"
+            hx-delete="/admin/devices/{{.Device.ID}}/ota"
+            hx-target="#firmware-card"
+            hx-swap="innerHTML"
+            hx-confirm="Cancel pending OTA?">Cancel</button>
+</div>
+<p class="form-hint">Will be delivered on the device's next poll. If the device is offline, the command expires in ~10 minutes.</p>
+{{else}}
+<form hx-post="/admin/devices/{{.Device.ID}}/ota"
+      hx-target="#firmware-card"
+      hx-swap="innerHTML">
+    <div class="form-group">
+        <label for="ota_url">Firmware URL</label>
+        <input type="url" id="ota_url" name="url" value="{{.DefaultURL}}" required placeholder="https://example.com/firmware-{{.Device.DisplayType}}.bin">
+    </div>
+    <div class="form-group form-checkbox">
+        <label>
+            <input type="checkbox" name="save_default" value="1">
+            Save this URL as the default for <span class="mono">{{.Device.DisplayType}}</span> devices
+        </label>
+    </div>
+    <div class="actions">
+        <button type="submit" class="btn btn-primary"
+                hx-confirm="Queue OTA firmware update for {{.Device.ID}}?">Trigger OTA</button>
+    </div>
+    <p class="form-hint">The device downloads the firmware on its next poll, flashes it, and reboots. Make sure the URL points to a build matching <span class="mono">{{.Device.DisplayType}}</span>.</p>
+</form>
+{{end}}
+{{end}}

@@ -221,6 +221,124 @@ func TestListPlaylists(t *testing.T) {
 	}
 }
 
+// --- OTA ---
+
+func TestOTA_QueuePeekPop(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+
+	// PopOTA on missing key returns nil
+	got, err := s.PopOTA(ctx, "dev-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != nil {
+		t.Error("expected nil for missing OTA")
+	}
+
+	// Queue + peek preserves
+	if err := s.QueueOTA(ctx, "dev-1", "https://example.com/fw.bin"); err != nil {
+		t.Fatal(err)
+	}
+	peeked, err := s.PeekOTA(ctx, "dev-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if peeked == nil || peeked.URL != "https://example.com/fw.bin" {
+		t.Fatalf("peek returned %+v", peeked)
+	}
+	// Peeking again should still return it
+	peeked2, _ := s.PeekOTA(ctx, "dev-1")
+	if peeked2 == nil {
+		t.Error("peek should not consume")
+	}
+
+	// Pop returns it and deletes
+	popped, err := s.PopOTA(ctx, "dev-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if popped == nil || popped.URL != "https://example.com/fw.bin" {
+		t.Fatalf("pop returned %+v", popped)
+	}
+	popped2, _ := s.PopOTA(ctx, "dev-1")
+	if popped2 != nil {
+		t.Error("second pop should return nil")
+	}
+}
+
+func TestOTA_Cancel(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+
+	s.QueueOTA(ctx, "dev-1", "https://example.com/fw.bin")
+	if err := s.CancelOTA(ctx, "dev-1"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.PeekOTA(ctx, "dev-1")
+	if got != nil {
+		t.Error("expected nil after cancel")
+	}
+}
+
+func TestOTA_QueueOverwrites(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+
+	s.QueueOTA(ctx, "dev-1", "https://example.com/old.bin")
+	s.QueueOTA(ctx, "dev-1", "https://example.com/new.bin")
+	got, _ := s.PeekOTA(ctx, "dev-1")
+	if got == nil || got.URL != "https://example.com/new.bin" {
+		t.Errorf("expected new url, got %+v", got)
+	}
+}
+
+func TestDeleteDevice_ClearsPendingOTA(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+
+	s.UpsertDevice(ctx, &model.Device{ID: "dev-1"})
+	s.QueueOTA(ctx, "dev-1", "https://example.com/fw.bin")
+	s.DeleteDevice(ctx, "dev-1")
+
+	got, _ := s.PeekOTA(ctx, "dev-1")
+	if got != nil {
+		t.Error("expected OTA cleared on device delete")
+	}
+}
+
+// --- Firmware URL ---
+
+func TestFirmwareURL_RoundTrip(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+
+	// Missing returns empty, no error
+	got, err := s.GetFirmwareURL(ctx, "max7219")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+
+	// Set + get
+	if err := s.SetFirmwareURL(ctx, "max7219", "https://example.com/fw.bin"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.GetFirmwareURL(ctx, "max7219")
+	if got != "https://example.com/fw.bin" {
+		t.Errorf("got %q", got)
+	}
+
+	// Empty string clears the entry
+	s.SetFirmwareURL(ctx, "max7219", "")
+	got, _ = s.GetFirmwareURL(ctx, "max7219")
+	if got != "" {
+		t.Errorf("expected cleared, got %q", got)
+	}
+}
+
 func TestDeletePlaylist(t *testing.T) {
 	s := setupStore(t)
 	ctx := context.Background()
