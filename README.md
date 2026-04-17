@@ -18,6 +18,10 @@ The server will be available at `http://localhost:8080`.
 |----------|---------|-------------|
 | `KUROKKU_LISTEN_ADDR` | `:8080` | HTTP listen address |
 | `KUROKKU_REDIS_ADDR` | `localhost:6379` | Redis/Valkey address |
+| `KUROKKU_LOW_PRIORITY_ALERT_CRON` | `*/15 * * * *` | When low-priority alerts are allowed to display |
+| `KUROKKU_LOW_PRIORITY_THRESHOLD` | `3` | Alerts with `priority >= N` are gated by the cron above |
+| `KUROKKU_TM1637_ALERT_SCROLL_SPEED_MS` | `150` | Scroll speed (ms/col) for alert text on tm1637 devices |
+| `KUROKKU_TM1637_ALERT_REPEATS` | `3` | Number of times alert text repeats on tm1637 devices |
 
 ### Recommended Redis/Valkey Configuration
 
@@ -124,4 +128,23 @@ The server detects alert changes via Redis keyspace notifications and resets all
 redis-cli SET kurokku:alert:tornado-warning '{"id":"tornado-warning","message":"TORNADO WARNING - Take shelter","priority":1,"display_duration":"15s","delete_after_display":false}'
 ```
 
-The [nalssi](https://github.com/swilcox/nalssi) weather service can push temperature data and weather alerts to kurokku automatically.
+### Priority Scale
+
+Alerts with `priority < KUROKKU_LOW_PRIORITY_THRESHOLD` always display. Alerts at or above the threshold only display when `KUROKKU_LOW_PRIORITY_ALERT_CRON` matches — so routine advisories (fog, frost, wind chill) don't crowd out more important content.
+
+Both knobs can be overridden per-device via the `low_priority_alert_cron` and `low_priority_threshold` fields on `Device` (admin form or JSON API). Leave blank/null to inherit the server defaults.
+
+The defaults (threshold `3`, cron `*/15 * * * *`) are aligned with the priority scale that [nalssi](https://github.com/swilcox/nalssi) assigns when writing to its `kurokku` Redis backend:
+
+| Priority | Nalssi events (default mapping) | Default behavior |
+|---------:|---------------------------------|------------------|
+| 0 | tornado, tsunami, hurricane, typhoon, extreme wind, storm surge | always display |
+| 1 | flash flood, severe thunderstorm, blizzard, ice storm | always display |
+| 2 | flood, winter storm, high wind, excessive heat, fire weather | always display |
+| 3 | wind chill, freeze, frost, heat advisory, wind advisory, dense fog | gated by cron |
+| 4 | winter weather, special weather | gated by cron |
+| 5 | anything else / unknown | gated by cron |
+
+See the [nalssi README](https://github.com/swilcox/nalssi#kurokku-alert-priorities) for the full mapping and how to override it. Alerts pushed from other sources can use any integer priority you like — `0` is most urgent.
+
+The nalssi weather service can push temperature data and weather alerts to kurokku automatically.

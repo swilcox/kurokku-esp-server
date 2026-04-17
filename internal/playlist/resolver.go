@@ -259,8 +259,18 @@ func (r *Resolver) buildAlertInstruction(ctx context.Context, device *model.Devi
 		r.logger.Debug("alert", "index", i, "id", a.ID, "priority", a.Priority, "message", a.Message, "display_duration", a.DisplayDurationStr)
 	}
 
-	filtered := alert.FilterAndSortAlerts(allAlerts, r.lowPriorityCron, r.lowPriorityThreshold, time.Now())
-	r.logger.Debug("filtered alerts", "before", len(allAlerts), "after", len(filtered), "low_priority_cron", r.lowPriorityCron, "threshold", r.lowPriorityThreshold)
+	cronExpr, threshold := r.lowPriorityCron, r.lowPriorityThreshold
+	if device != nil {
+		if device.LowPriorityAlertCron != nil {
+			cronExpr = *device.LowPriorityAlertCron
+		}
+		if device.LowPriorityThreshold != nil {
+			threshold = *device.LowPriorityThreshold
+		}
+	}
+
+	filtered := alert.FilterAndSortAlerts(allAlerts, cronExpr, threshold, time.Now())
+	r.logger.Debug("filtered alerts", "before", len(allAlerts), "after", len(filtered), "low_priority_cron", cronExpr, "threshold", threshold)
 
 	ai := alert.BuildAlertInstruction(filtered)
 

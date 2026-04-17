@@ -17,14 +17,13 @@ type Config struct {
 }
 
 func Load() *Config {
-	threshold := 10
 	return &Config{
 		ListenAddr:             envOrDefault("KUROKKU_LISTEN_ADDR", ":8080"),
 		RedisAddr:              envOrDefault("KUROKKU_REDIS_ADDR", "localhost:6379"),
 		TemplateDir:            envOrDefault("KUROKKU_TEMPLATE_DIR", "web/templates"),
 		LogLevel:               envOrDefault("KUROKKU_LOG_LEVEL", "info"),
 		LowPriorityAlertCron:   envOrDefault("KUROKKU_LOW_PRIORITY_ALERT_CRON", "*/15 * * * *"),
-		LowPriorityThreshold:   threshold,
+		LowPriorityThreshold:   envIntOrDefault("KUROKKU_LOW_PRIORITY_THRESHOLD", 3),
 		TM1637AlertScrollSpeed: envIntOrDefault("KUROKKU_TM1637_ALERT_SCROLL_SPEED_MS", 150),
 		TM1637AlertRepeats:     envIntOrDefault("KUROKKU_TM1637_ALERT_REPEATS", 3),
 	}

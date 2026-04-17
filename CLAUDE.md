@@ -48,7 +48,7 @@ The server controls when to advance the playlist. On poll:
 
 ### Alert Flow
 
-Alerts are stored as individual Redis keys at `kurokku:alert:<id>`, each containing a JSON `AlertConfig` (id, message, priority, display_duration, delete_after_display). The server detects changes via Redis keyspace notifications and resets all devices to their alert widget position. Multiple alerts are sorted by priority and concatenated. Low-priority alerts can be filtered by a cron schedule. If no alerts exist, the alert widget falls back to clock for its duration. The [nalssi](https://github.com/swilcox/nalssi) weather service can push temperature and alerts automatically.
+Alerts are stored as individual Redis keys at `kurokku:alert:<id>`, each containing a JSON `AlertConfig` (id, message, priority, display_duration, delete_after_display). The server detects changes via Redis keyspace notifications and resets all devices to their alert widget position. Multiple alerts are sorted by priority and concatenated. Low-priority alerts can be filtered by a cron schedule. If no alerts are active (after filtering), the alert entry is skipped and the resolver advances to the next playlist entry. The [nalssi](https://github.com/swilcox/nalssi) weather service can push temperature and alerts automatically.
 
 ### API
 

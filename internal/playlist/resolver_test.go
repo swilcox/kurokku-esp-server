@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -394,6 +395,44 @@ func TestCronMatchesNow_InvalidExpr(t *testing.T) {
 	// Invalid cron should return true (fail-open)
 	if !cronMatchesNow("invalid", time.Now()) {
 		t.Error("invalid cron should match (fail-open)")
+	}
+}
+
+func TestResolve_AlertWidget_DeviceCronOverride_GatesLowPriority(t *testing.T) {
+	// Global cron "* * * * *" would let every priority through. The device
+	// override below is a cron that never matches, so priority-3 alerts should
+	// be filtered while priority-0 still shows.
+	r, mr := setupResolver(t)
+	ctx := context.Background()
+
+	mr.Set("kurokku:alert:low", `{"id":"low","message":"LOW","priority":3,"display_duration":"5s"}`)
+	mr.Set("kurokku:alert:high", `{"id":"high","message":"HIGH","priority":0,"display_duration":"5s"}`)
+
+	neverMatch := "59 3 1 1 *"
+	thresh := 3
+	device := &model.Device{
+		ID:                   "dev-1",
+		Brightness:           8,
+		PollMs:               5000,
+		LowPriorityAlertCron: &neverMatch,
+		LowPriorityThreshold: &thresh,
+	}
+
+	alertEntry := model.PlaylistEntry{ID: "e-alert", DurationSec: 10, Widget: model.Widget{Type: "alert"}}
+	pl := makePlaylist(alertEntry)
+
+	resp, err := r.Resolve(ctx, device, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Instruction == nil || resp.Instruction.Type != "message" {
+		t.Fatalf("expected alert message, got %+v", resp.Instruction)
+	}
+	if !strings.Contains(resp.Instruction.Text, "HIGH") {
+		t.Errorf("expected HIGH alert in text, got %q", resp.Instruction.Text)
+	}
+	if strings.Contains(resp.Instruction.Text, "LOW") {
+		t.Errorf("expected LOW alert to be filtered by device override, got %q", resp.Instruction.Text)
 	}
 }
 

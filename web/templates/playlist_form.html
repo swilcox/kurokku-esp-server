@@ -100,7 +100,7 @@
                             </div>
 
                             <div class="entry-panel panel-alert" {{if ne $e.Widget.Type "alert"}}hidden{{end}}>
-                                <p class="entry-note">Alert content is read from Redis (<code>kurokku:alert:*</code>) at display time. Each alert supplies its own message duration; the Duration field above only controls when the server rotates to the next entry if no alerts are queued.</p>
+                                <p class="entry-note">Alert content is read from Redis (<code>kurokku:alert:*</code>) at display time and each alert supplies its own display duration. If no alerts are queued, this entry is skipped entirely and the playlist advances to the next entry — the Duration field above has no effect on alert widgets.</p>
                             </div>
                         </div>
                     </div>
@@ -203,7 +203,7 @@
                     </div>
                 </div>
                 <div class="entry-panel panel-alert" hidden>
-                    <p class="entry-note">Alert content is read from Redis (<code>kurokku:alert:*</code>) at display time. Each alert supplies its own message duration; the Duration field above only controls when the server rotates to the next entry if no alerts are queued.</p>
+                    <p class="entry-note">Alert content is read from Redis (<code>kurokku:alert:*</code>) at display time and each alert supplies its own display duration. If no alerts are queued, this entry is skipped entirely and the playlist advances to the next entry — the Duration field above has no effect on alert widgets.</p>
                 </div>
             </div>
         </div>
