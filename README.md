@@ -4,8 +4,16 @@ HTTP server for managing ESP32-powered LED display devices. Serves widget instru
 
 ## Quick Start
 
+Run the published image from GHCR:
+
 ```bash
-docker compose up -d
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Pin a specific release by setting `KUROKKU_IMAGE_TAG` (defaults to `latest`):
+
+```bash
+KUROKKU_IMAGE_TAG=v1.2.3 docker compose -f docker-compose.prod.yml up -d
 ```
 
 The server will be available at `http://localhost:8080`.
@@ -27,7 +35,7 @@ The server will be available at `http://localhost:8080`.
 
 All state (device config, playlists, and ephemeral playlist cursors) lives in Redis. Persistence must be enabled or you'll lose device and playlist configuration on restart.
 
-The included `docker-compose.yml` runs [Valkey](https://valkey.io/) (Redis-compatible) with these recommended settings:
+Both compose files run [Valkey](https://valkey.io/) (Redis-compatible) with these recommended settings:
 
 ```
 # AOF persistence — logs every write, replayed on restart
@@ -51,8 +59,8 @@ If running Redis/Valkey outside of Docker, add these directives to your `redis.c
 go build -o kurokku-esp-server ./cmd/server
 ./kurokku-esp-server
 
-# Or with Docker
-docker compose up --build
+# Or with Docker (builds from source, exposes Valkey on :6379)
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 ## API

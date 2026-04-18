@@ -1,0 +1,34 @@
+services:
+  server:
+    image: ghcr.io/swilcox/kurokku-esp-server:${KUROKKU_IMAGE_TAG:-latest}
+    pull_policy: always
+    ports:
+      - "8080:8080"
+    environment:
+      KUROKKU_LISTEN_ADDR: ":8080"
+      KUROKKU_REDIS_ADDR: "valkey:6379"
+    depends_on:
+      valkey:
+        condition: service_healthy
+    restart: unless-stopped
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    volumes:
+      - valkey-data:/data
+    command: >
+      valkey-server
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  valkey-data:
