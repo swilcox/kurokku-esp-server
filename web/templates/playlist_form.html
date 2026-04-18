@@ -1,7 +1,13 @@
 {{define "title"}}クロック — {{if .IsNew}}New Playlist{{else}}Edit {{.Playlist.ID}}{{end}}{{end}}
 
 {{define "content"}}
-<h1>{{if .IsNew}}New Playlist{{else}}Edit Playlist: {{.Playlist.Name}}{{end}}</h1>
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Playlist Builder</div>
+        <h1>{{if .IsNew}}New Playlist{{else}}{{if .Playlist.Name}}{{.Playlist.Name}}{{else}}{{.Playlist.ID}}{{end}}{{end}}</h1>
+        <p class="page-copy">{{if .IsNew}}Create a display rotation for one or more clocks.{{else}}Adjust timing, scheduled windows, alerts, and display widgets.{{end}}</p>
+    </div>
+</div>
 
 {{if .Errors}}
 <div class="flash flash-error">
@@ -107,7 +113,7 @@
                 </div>
                 {{end}}
             </div>
-            <button type="button" class="btn btn-sm" onclick="addEntry()" style="margin-top:0.5rem">+ Add Entry</button>
+            <button type="button" class="btn btn-sm entry-add" onclick="addEntry()">+ Add Entry</button>
         </div>
 
         <div class="actions">
@@ -117,9 +123,9 @@
     </form>
 </div>
 
-<div class="card" style="margin-top:1rem">
+<div class="card mt-1">
     <h2>Schedule (Cron)</h2>
-    <p style="color:var(--text-muted);font-size:0.9rem">
+    <p class="section-note">
         Optional 5-field cron expression (minute, hour, day-of-month, month, day-of-week). When set,
         the entry is only included in the playlist during matching minutes. Leave blank to always include.
         Invalid expressions are rejected on save.

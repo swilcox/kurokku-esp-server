@@ -14,6 +14,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/swilcox/kurokku-esp-server/internal/model"
 	"github.com/swilcox/kurokku-esp-server/internal/store"
+	"github.com/swilcox/kurokku-esp-server/internal/version"
 )
 
 var cronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
@@ -125,8 +126,9 @@ func (w *WebHandler) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 	playlists, _ := w.store.ListPlaylists(ctx)
 
 	w.render(rw, "dashboard.html", map[string]any{
-		"Devices":   devices,
-		"Playlists": playlists,
+		"Devices":       devices,
+		"Playlists":     playlists,
+		"ServerVersion": version.ServerVersion(),
 	})
 }
 

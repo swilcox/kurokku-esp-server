@@ -1,7 +1,13 @@
 {{define "title"}}クロック — {{if .IsNew}}New Device{{else}}Edit {{.Device.ID}}{{end}}{{end}}
 
 {{define "content"}}
-<h1>{{if .IsNew}}New Device{{else}}Edit Device: {{.Device.ID}}{{end}}</h1>
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Device Config</div>
+        <h1>{{if .IsNew}}New Device{{else}}{{if .Device.Name}}{{.Device.Name}}{{else}}{{.Device.ID}}{{end}}{{end}}</h1>
+        <p class="page-copy">{{if .IsNew}}Register a new ESP display and assign its operating defaults.{{else}}Tune hardware behavior, monitor the latest poll, and queue firmware updates.{{end}}</p>
+    </div>
+</div>
 
 {{if not .IsNew}}
 <div class="card">

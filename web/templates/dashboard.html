@@ -1,7 +1,31 @@
 {{define "title"}}クロック — Dashboard{{end}}
 
 {{define "content"}}
-<h1>Dashboard</h1>
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Kurokku Admin</div>
+        <h1>Display Fleet</h1>
+        <p class="page-copy">Manage ESP clocks, playlist rotation, alert display, and OTA firmware from one control plane.</p>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="stat-card">
+        <div class="stat-label">Devices</div>
+        <div class="stat-value">{{len .Devices}}</div>
+        <div class="stat-note">Registered display nodes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Playlists</div>
+        <div class="stat-value">{{len .Playlists}}</div>
+        <div class="stat-note">Available content schedules</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Server Version</div>
+        <div class="stat-value">{{.ServerVersion}}</div>
+        <div class="stat-note">Running admin build</div>
+    </div>
+</div>
 
 <div class="card">
     <div class="card-header">
