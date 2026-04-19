@@ -98,7 +98,11 @@
                                         <option value="static" {{if eq $e.Widget.Animation "static"}}selected{{end}}>static</option>
                                         <option value="pong" {{if eq $e.Widget.Animation "pong"}}selected{{end}}>pong</option>
                                         <option value="matrix" {{if eq $e.Widget.Animation "matrix"}}selected{{end}}>matrix</option>
-                                        {{if and $e.Widget.Animation (ne $e.Widget.Animation "static") (ne $e.Widget.Animation "pong") (ne $e.Widget.Animation "matrix")}}
+                                        <option value="snake" {{if eq $e.Widget.Animation "snake"}}selected{{end}}>snake</option>
+                                        <option value="curtain" {{if eq $e.Widget.Animation "curtain"}}selected{{end}}>curtain</option>
+                                        <option value="sine" {{if eq $e.Widget.Animation "sine"}}selected{{end}}>sine</option>
+                                        <option value="random" {{if eq $e.Widget.Animation "random"}}selected{{end}}>random</option>
+                                        {{if and $e.Widget.Animation (ne $e.Widget.Animation "static") (ne $e.Widget.Animation "pong") (ne $e.Widget.Animation "matrix") (ne $e.Widget.Animation "snake") (ne $e.Widget.Animation "curtain") (ne $e.Widget.Animation "sine") (ne $e.Widget.Animation "random")}}
                                         <option value="{{$e.Widget.Animation}}" selected>{{$e.Widget.Animation}} (custom)</option>
                                         {{end}}
                                     </select>
@@ -205,6 +209,10 @@
                             <option value="static" selected>static</option>
                             <option value="pong">pong</option>
                             <option value="matrix">matrix</option>
+                            <option value="snake">snake</option>
+                            <option value="curtain">curtain</option>
+                            <option value="sine">sine</option>
+                            <option value="random">random</option>
                         </select>
                     </div>
                 </div>
