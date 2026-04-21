@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,6 +15,8 @@ import (
 	"github.com/swilcox/kurokku-esp-server/internal/model"
 	"github.com/swilcox/kurokku-esp-server/internal/solar"
 )
+
+var messageTemplatePattern = regexp.MustCompile(`\{\{\s*([a-zA-Z_]+)(?::([^}]*))?\s*\}\}`)
 
 // Resolver determines what a device should display based on its
 // playlist and ephemeral Redis state.
@@ -46,7 +50,6 @@ func NewResolver(rdb *redis.Client, logger *slog.Logger, opts Options) *Resolver
 func stateKey(deviceID string) string {
 	return fmt.Sprintf("device:%s:playlist_state", deviceID)
 }
-
 
 // Resolve returns the instruction (if any) for a device poll.
 // Returns nil instruction if the current widget's duration hasn't elapsed.
@@ -235,17 +238,127 @@ func (r *Resolver) buildInstruction(ctx context.Context, device *model.Device, e
 func (r *Resolver) buildMessageInstruction(ctx context.Context, entry *model.PlaylistEntry) (*model.Instruction, error) {
 	inst := widgetToInstruction(&entry.Widget, entry.DurationSec)
 
+	var redisValue string
 	if entry.Widget.RedisKey != "" {
 		val, err := r.rdb.Get(ctx, entry.Widget.RedisKey).Result()
 		if err != nil && err != redis.Nil {
 			return nil, fmt.Errorf("reading message key %s from redis: %w", entry.Widget.RedisKey, err)
 		}
 		if err == nil && val != "" {
-			inst.Text = val
+			redisValue = val
 		}
 	}
 
+	if rendered, ok := renderMessageTemplate(inst.Text, redisValue, time.Now()); ok {
+		inst.Text = rendered
+	} else if redisValue != "" {
+		// Preserve the historical behavior when no inline placeholders are used.
+		inst.Text = redisValue
+	}
+
 	return inst, nil
+}
+
+func renderMessageTemplate(text, redisValue string, now time.Time) (string, bool) {
+	matches := messageTemplatePattern.FindAllStringSubmatchIndex(text, -1)
+	if len(matches) == 0 {
+		return text, false
+	}
+
+	var b strings.Builder
+	last := 0
+	for _, m := range matches {
+		b.WriteString(text[last:m[0]])
+
+		token := strings.ToLower(text[m[2]:m[3]])
+		spec := ""
+		if len(m) >= 6 && m[4] >= 0 && m[5] >= 0 {
+			spec = strings.TrimSpace(text[m[4]:m[5]])
+		}
+		b.WriteString(resolveMessageToken(token, spec, redisValue, now))
+		last = m[1]
+	}
+	b.WriteString(text[last:])
+	return b.String(), true
+}
+
+func resolveMessageToken(token, spec, redisValue string, now time.Time) string {
+	layout, timezone, hasTimezone := parseMessageTokenSpec(spec)
+
+	switch token {
+	case "redis":
+		return redisValue
+	case "date":
+		return formatMessageTimeToken(token, layout, timezone, hasTimezone, "Mon Jan 2", now)
+	case "time":
+		return formatMessageTimeToken(token, layout, timezone, hasTimezone, "3:04 PM", now)
+	case "datetime":
+		return formatMessageTimeToken(token, layout, timezone, hasTimezone, "Mon Jan 2 3:04 PM", now)
+	case "now":
+		return formatMessageTimeToken(token, layout, timezone, hasTimezone, time.RFC3339, now)
+	default:
+		return "{{" + tokenWithSpec(token, spec) + "}}"
+	}
+}
+
+func formatMessageTimeToken(token, layout, timezone string, hasTimezone bool, fallback string, now time.Time) string {
+	t := now
+	if hasTimezone {
+		loc, ok := resolveMessageTimezone(timezone)
+		if !ok {
+			return "{{" + tokenWithSpec(token, buildMessageTokenSpec(layout, timezone, hasTimezone)) + "}}"
+		}
+		t = now.In(loc)
+	}
+	return t.Format(withDefaultLayout(layout, fallback))
+}
+
+func parseMessageTokenSpec(spec string) (layout, timezone string, hasTimezone bool) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return "", "", false
+	}
+
+	parts := strings.SplitN(spec, "|", 2)
+	layout = strings.TrimSpace(parts[0])
+	if len(parts) == 1 {
+		return layout, "", false
+	}
+
+	timezone = strings.TrimSpace(parts[1])
+	return layout, timezone, timezone != ""
+}
+
+func resolveMessageTimezone(name string) (*time.Location, bool) {
+	if strings.EqualFold(name, "UTC") {
+		return time.UTC, true
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		return nil, false
+	}
+	return loc, true
+}
+
+func withDefaultLayout(layout, fallback string) string {
+	if strings.TrimSpace(layout) == "" {
+		return fallback
+	}
+	return layout
+}
+
+func tokenWithSpec(token, spec string) string {
+	if spec == "" {
+		return token
+	}
+	return token + ":" + spec
+}
+
+func buildMessageTokenSpec(layout, timezone string, hasTimezone bool) string {
+	if !hasTimezone {
+		return layout
+	}
+	return layout + "|" + timezone
 }
 
 func (r *Resolver) buildAlertInstruction(ctx context.Context, device *model.Device, entry *model.PlaylistEntry) (*model.Instruction, error) {

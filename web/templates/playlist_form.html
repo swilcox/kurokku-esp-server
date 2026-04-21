@@ -74,8 +74,8 @@
 
                             <div class="entry-panel panel-message" {{if ne $e.Widget.Type "message"}}hidden{{end}}>
                                 <div class="entry-field entry-field-wide">
-                                    <label title="Scrolled across the display. Overridden by Redis key value if set and present.">Message text</label>
-                                    <input type="text" name="entry_msg_text_{{$i}}" value="{{$e.Widget.Text}}" placeholder="Hello!">
+                                    <label title="Scrolled across the display. Supports server-rendered placeholders like &#123;&#123;date:Mon Jan 2&#125;&#125;, &#123;&#123;time:3:04 PM&#125;&#125;, &#123;&#123;time:15:04|UTC&#125;&#125;, &#123;&#123;datetime:2006-01-02 15:04|America/Chicago&#125;&#125;, &#123;&#123;now:Mon Jan 2 3:04 PM&#125;&#125;, and &#123;&#123;redis&#125;&#125;. If a Redis key is set and no placeholders are used, its value still replaces the whole message.">Message text</label>
+                                    <input type="text" name="entry_msg_text_{{$i}}" value="{{$e.Widget.Text}}" placeholder="Now &#123;&#123;time:15:04|UTC&#125;&#125;">
                                 </div>
                                 <div class="entry-field">
                                     <label title="Milliseconds per column of scroll. Lower = faster.">Scroll speed (ms/col)</label>
@@ -86,7 +86,7 @@
                                     <input type="number" name="entry_msg_repeats_{{$i}}" value="{{if gt $e.Widget.Repeats 0}}{{$e.Widget.Repeats}}{{else}}0{{end}}" min="0" placeholder="0">
                                 </div>
                                 <div class="entry-field entry-field-wide">
-                                    <label title="If set and key has a value, replaces the message text at display time.">Redis key (optional)</label>
+                                    <label title="Optional Redis value used by &#123;&#123;redis&#125;&#125; or, if no placeholders are present, as the full message override.">Redis key (optional)</label>
                                     <input type="text" name="entry_redis_key_{{$i}}" value="{{entryRedisKey $e}}" placeholder="kurokku:temperature">
                                 </div>
                             </div>
