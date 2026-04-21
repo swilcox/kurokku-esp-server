@@ -13,5 +13,5 @@ func ServerVersion() string {
 	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
 		return info.Main.Version
 	}
-	return "0.1.1-dev"
+	return "0.1.2"
 }
