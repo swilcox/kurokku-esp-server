@@ -175,6 +175,62 @@ func TestResolve_MultiEntry_Advancement(t *testing.T) {
 	}
 }
 
+func TestResolve_MessageRedisKeyStillOverridesPlainText(t *testing.T) {
+	r, mr := setupResolver(t)
+	ctx := context.Background()
+	device := makeDevice("dev-1")
+	mr.Set("kurokku:test:message", "from redis")
+
+	pl := makePlaylist(model.PlaylistEntry{
+		ID:          "e-msg",
+		DurationSec: 10,
+		Widget: model.Widget{
+			Type:     "message",
+			Text:     "static",
+			RedisKey: "kurokku:test:message",
+		},
+	})
+
+	resp, err := r.Resolve(ctx, device, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Instruction == nil {
+		t.Fatal("expected instruction")
+	}
+	if resp.Instruction.Text != "from redis" {
+		t.Fatalf("text = %q, want %q", resp.Instruction.Text, "from redis")
+	}
+}
+
+func TestResolve_MessageTemplateCanInsertRedisValue(t *testing.T) {
+	r, mr := setupResolver(t)
+	ctx := context.Background()
+	device := makeDevice("dev-1")
+	mr.Set("kurokku:test:temp", "72F")
+
+	pl := makePlaylist(model.PlaylistEntry{
+		ID:          "e-msg",
+		DurationSec: 10,
+		Widget: model.Widget{
+			Type:     "message",
+			Text:     "Temp {{redis}}",
+			RedisKey: "kurokku:test:temp",
+		},
+	})
+
+	resp, err := r.Resolve(ctx, device, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Instruction == nil {
+		t.Fatal("expected instruction")
+	}
+	if resp.Instruction.Text != "Temp 72F" {
+		t.Fatalf("text = %q, want %q", resp.Instruction.Text, "Temp 72F")
+	}
+}
+
 func TestResolve_VersionChange_ResetsToZero(t *testing.T) {
 	r, _ := setupResolver(t)
 	ctx := context.Background()
@@ -195,6 +251,66 @@ func TestResolve_VersionChange_ResetsToZero(t *testing.T) {
 	}
 	if resp.Instruction.Type != "clock" {
 		t.Errorf("version change should reset to index 0 (clock), got %s", resp.Instruction.Type)
+	}
+}
+
+func TestRenderMessageTemplate_TimeTokens(t *testing.T) {
+	now := time.Date(2026, 4, 21, 13, 5, 0, 0, time.UTC)
+
+	got, ok := renderMessageTemplate(
+		"Today {{date:Mon 1/2}} at {{time:15:04}}; full {{datetime:2006-01-02 15:04}}; raw {{now:2006}}",
+		"",
+		now,
+	)
+	if !ok {
+		t.Fatal("expected template render to report placeholders")
+	}
+
+	want := "Today Tue 4/21 at 13:05; full 2026-04-21 13:05; raw 2026"
+	if got != want {
+		t.Fatalf("rendered = %q, want %q", got, want)
+	}
+}
+
+func TestRenderMessageTemplate_TimeTokensWithTimezone(t *testing.T) {
+	now := time.Date(2026, 4, 21, 13, 5, 0, 0, time.UTC)
+
+	got, ok := renderMessageTemplate(
+		"UTC {{time:15:04|UTC}} Central {{time:15:04|America/Chicago}} Date {{date:2006-01-02|America/Chicago}}",
+		"",
+		now,
+	)
+	if !ok {
+		t.Fatal("expected template render to report placeholders")
+	}
+
+	want := "UTC 13:05 Central 08:05 Date 2026-04-21"
+	if got != want {
+		t.Fatalf("rendered = %q, want %q", got, want)
+	}
+}
+
+func TestRenderMessageTemplate_InvalidTimezonePreserved(t *testing.T) {
+	now := time.Date(2026, 4, 21, 13, 5, 0, 0, time.UTC)
+
+	got, ok := renderMessageTemplate("Bad {{time:15:04|Mars/Olympus}}", "", now)
+	if !ok {
+		t.Fatal("expected template render to report placeholders")
+	}
+	if got != "Bad {{time:15:04|Mars/Olympus}}" {
+		t.Fatalf("rendered = %q, want invalid timezone placeholder to remain intact", got)
+	}
+}
+
+func TestRenderMessageTemplate_UnknownTokensPreserved(t *testing.T) {
+	now := time.Date(2026, 4, 21, 13, 5, 0, 0, time.UTC)
+
+	got, ok := renderMessageTemplate("Value {{unknown:test}}", "", now)
+	if !ok {
+		t.Fatal("expected template render to report placeholders")
+	}
+	if got != "Value {{unknown:test}}" {
+		t.Fatalf("rendered = %q, want unknown token to remain intact", got)
 	}
 }
 

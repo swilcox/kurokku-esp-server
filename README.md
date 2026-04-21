@@ -115,6 +115,55 @@ curl -X PUT http://localhost:8080/api/v1/admin/devices/esp32-001 \
   }'
 ```
 
+### Message Widget Templates
+
+`message` widgets can render server-side placeholders at poll time while still sending a normal `"type": "message"` instruction to devices.
+
+Supported placeholders:
+
+| Placeholder | Default output | Notes |
+|-------------|----------------|-------|
+| `{{date}}` | `Mon Jan 2` | Accepts a Go `time.Format` layout after `:` and optional timezone after `|` |
+| `{{time}}` | `3:04 PM` | Accepts a Go `time.Format` layout after `:` and optional timezone after `|` |
+| `{{datetime}}` | `Mon Jan 2 3:04 PM` | Accepts a Go `time.Format` layout after `:` and optional timezone after `|` |
+| `{{now}}` | RFC3339 timestamp | Accepts a Go `time.Format` layout after `:` and optional timezone after `|` |
+| `{{redis}}` | Redis key value | Uses the message widget's `redis_key` |
+
+Timezone handling:
+
+- No timezone suffix uses the server's local timezone.
+- `|UTC` renders in UTC.
+- `|America/Chicago` and other IANA timezone names are supported.
+- Invalid timezone names are left unrendered so configuration mistakes are visible.
+
+Examples:
+
+```json
+{
+  "type": "message",
+  "text": "Today is {{date:Mon Jan 2}}",
+  "scroll_speed_ms": 50,
+  "repeats": 2
+}
+```
+
+```json
+{
+  "type": "message",
+  "text": "Temp {{redis}} as of {{time:15:04}}",
+  "redis_key": "kurokku:temperature"
+}
+```
+
+```json
+{
+  "type": "message",
+  "text": "UTC {{time:15:04|UTC}}  Chicago {{time:3:04 PM|America/Chicago}}"
+}
+```
+
+If `redis_key` is set and the message text contains no placeholders, the existing behavior is preserved: the Redis value replaces the entire message text.
+
 ## Alert Integration
 
 Alerts are stored as individual Redis keys at `kurokku:alert:<id>`, each containing a JSON object:
