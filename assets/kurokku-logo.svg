@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" role="img" aria-label="クロック — Kurokku">
+  <title>クロック — Kurokku</title>
+  <defs>
+    <!-- Soft outer glow for the katakana -->
+    <filter id="cyanGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2" result="b1"/>
+      <feGaussianBlur stdDeviation="6" result="b2"/>
+      <feGaussianBlur stdDeviation="14" result="b3"/>
+      <feMerge>
+        <feMergeNode in="b3"/>
+        <feMergeNode in="b3"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Hotter glow for the romaji subtitle -->
+    <filter id="pinkGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.5" result="b1"/>
+      <feGaussianBlur stdDeviation="4" result="b2"/>
+      <feGaussianBlur stdDeviation="10" result="b3"/>
+      <feMerge>
+        <feMergeNode in="b3"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Background gradient: deep night -->
+    <radialGradient id="bg" cx="50%" cy="55%" r="75%">
+      <stop offset="0%" stop-color="#101426"/>
+      <stop offset="55%" stop-color="#0a0c1a"/>
+      <stop offset="100%" stop-color="#04050d"/>
+    </radialGradient>
+
+    <!-- Subtle scanline pattern for CRT vibe -->
+    <pattern id="scan" width="2" height="3" patternUnits="userSpaceOnUse">
+      <rect width="2" height="3" fill="transparent"/>
+      <rect width="2" height="1" fill="#ffffff" opacity="0.025"/>
+    </pattern>
+
+    <style>
+      .kana {
+        font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+      .romaji {
+        font-family: 'Orbitron', 'Eurostile', 'Bahnschrift', 'Helvetica Neue', sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.42em;
+      }
+      .digits {
+        font-family: 'DSEG7 Classic', 'Share Tech Mono', 'Menlo', monospace;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+    </style>
+  </defs>
+
+  <!-- Backdrop -->
+  <rect x="0" y="0" width="880" height="300" rx="22" ry="22" fill="url(#bg)"/>
+  <rect x="0" y="0" width="880" height="300" rx="22" ry="22" fill="url(#scan)"/>
+
+  <!-- Outer neon frame -->
+  <rect x="10" y="10" width="860" height="280" rx="18" ry="18"
+        fill="none" stroke="#1ad8ff" stroke-opacity="0.35" stroke-width="1.5"
+        filter="url(#cyanGlow)"/>
+  <rect x="10" y="10" width="860" height="280" rx="18" ry="18"
+        fill="none" stroke="#1ad8ff" stroke-opacity="0.9" stroke-width="0.75"/>
+
+  <!-- Tiny digital "12:34" in the corner, like a clock chip readout -->
+  <g filter="url(#pinkGlow)">
+    <text x="48" y="64" class="digits" font-size="22" fill="#ff3aa8" opacity="0.9">12:34</text>
+  </g>
+
+  <!-- Main: クロック -->
+  <g filter="url(#cyanGlow)">
+    <text x="440" y="178" text-anchor="middle" class="kana"
+          font-size="138" fill="#7ff0ff" stroke="#ffffff" stroke-width="0.6">クロック</text>
+  </g>
+  <!-- Inner highlight pass for crispness -->
+  <text x="440" y="178" text-anchor="middle" class="kana"
+        font-size="138" fill="#ffffff" opacity="0.95">クロック</text>
+
+  <!-- Subtitle: KUROKKU -->
+  <g filter="url(#pinkGlow)">
+    <text x="440" y="232" text-anchor="middle" class="romaji"
+          font-size="26" fill="#ff5ab8">K U R O K K U</text>
+  </g>
+
+  <!-- Tagline -->
+  <text x="440" y="266" text-anchor="middle"
+        font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="13" letter-spacing="0.32em"
+        fill="#9fd9ff" opacity="0.75">ESP · LED · DISPLAY · SERVER</text>
+</svg>

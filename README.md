@@ -1,6 +1,25 @@
-# Kurokku ESP Server
+<p align="center">
+  <img src="assets/kurokku-logo.svg" alt="クロック — Kurokku" width="640"/>
+</p>
 
-HTTP server for managing ESP32-powered LED display devices. Serves widget instructions to polling devices based on a playlist model with server-owned timing.
+<h1 align="center">Kurokku ESP Server</h1>
+
+<p align="center">
+  <em><strong>クロック</strong> (kurokku) — the Japanese transliteration of <em>clock</em>.</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/swilcox/kurokku-esp-server/actions/workflows/test.yml"><img alt="Tests" src="https://github.com/swilcox/kurokku-esp-server/actions/workflows/test.yml/badge.svg"></a>
+  <a href="https://github.com/swilcox/kurokku-esp-server/actions/workflows/release.yml"><img alt="Release" src="https://github.com/swilcox/kurokku-esp-server/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://github.com/swilcox/kurokku-esp-server/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/swilcox/kurokku-esp-server?display_name=tag&sort=semver"></a>
+  <a href="https://github.com/swilcox/kurokku-esp-server/pkgs/container/kurokku-esp-server"><img alt="GHCR image" src="https://img.shields.io/badge/ghcr.io-kurokku--esp--server-2496ED?logo=docker&logoColor=white"></a>
+  <img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/swilcox/kurokku-esp-server">
+  <a href="https://github.com/swilcox/led-kurokku-esp"><img alt="Firmware: led-kurokku-esp" src="https://img.shields.io/badge/firmware-led--kurokku--esp-7ff0ff?logo=espressif&logoColor=white"></a>
+</p>
+
+HTTP server for managing ESP32-powered LED display devices. Serves widget instructions to polling **クロック** devices based on a playlist model with server-owned timing.
+
+> **Companion firmware:** the ESP32 devices that poll this server run [**led-kurokku-esp**](https://github.com/swilcox/led-kurokku-esp). This repo is the brain; that one is the face.
 
 ## Quick Start
 
@@ -106,7 +125,7 @@ curl -X PUT http://localhost:8080/api/v1/admin/playlists/living-room \
 curl -X PUT http://localhost:8080/api/v1/admin/devices/esp32-001 \
   -H 'Content-Type: application/json' \
   -d '{
-    "name": "Living Room Clock",
+    "name": "Living Room クロック",
     "display_type": "max7219",
     "location": "living room",
     "brightness": 8,
