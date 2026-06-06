@@ -12,23 +12,29 @@ const (
 
 // Device represents a registered ESP32 display device.
 type Device struct {
-	ID          string      `json:"id" db:"id"`
-	Name        string      `json:"name" db:"name"`
-	DisplayType DisplayType `json:"display_type" db:"display_type"`
-	Location    string      `json:"location" db:"location"`
+	ID              string      `json:"id" db:"id"`
+	Name            string      `json:"name" db:"name"`
+	DisplayType     DisplayType `json:"display_type" db:"display_type"`
+	Location        string      `json:"location" db:"location"`
 	Brightness      int         `json:"brightness" db:"brightness"`
 	Latitude        *float64    `json:"latitude,omitempty" db:"latitude"`
 	Longitude       *float64    `json:"longitude,omitempty" db:"longitude"`
 	BrightnessDay   int         `json:"brightness_day" db:"brightness_day"`
 	BrightnessNight int         `json:"brightness_night" db:"brightness_night"`
 	PollMs          int         `json:"poll_ms" db:"poll_ms"`
-	PlaylistID  string      `json:"playlist_id" db:"playlist_id"`
+	PlaylistID      string      `json:"playlist_id" db:"playlist_id"`
 	// LowPriorityAlertCron / LowPriorityThreshold override the server-wide
 	// low-priority alert gating when set. Nil falls back to the Resolver default.
-	LowPriorityAlertCron *string   `json:"low_priority_alert_cron,omitempty" db:"low_priority_alert_cron"`
-	LowPriorityThreshold *int      `json:"low_priority_threshold,omitempty" db:"low_priority_threshold"`
-	CreatedAt            time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt            time.Time `json:"updated_at" db:"updated_at"`
+	LowPriorityAlertCron *string `json:"low_priority_alert_cron,omitempty" db:"low_priority_alert_cron"`
+	LowPriorityThreshold *int    `json:"low_priority_threshold,omitempty" db:"low_priority_threshold"`
+	// SyslogHost / Tz are pushed to the device as a remote `config` update in
+	// the poll response, so the firmware can persist them to NVS without serial
+	// re-provisioning. Nil = not managed (the firmware keeps its current value).
+	// SyslogHost is "host:port" for UDP syslog; Tz is a POSIX TZ string.
+	SyslogHost *string   `json:"syslog_host,omitempty" db:"syslog_host"`
+	Tz         *string   `json:"tz,omitempty" db:"tz"`
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // Playlist is an ordered list of widget entries that cycle on a device.
@@ -82,9 +88,21 @@ type Widget struct {
 // ServerResponse is the envelope returned to polling devices.
 // Matches the contract in the ESP firmware's CLAUDE.md.
 type ServerResponse struct {
-	Instruction *Instruction `json:"instruction,omitempty"`
-	Brightness  *int         `json:"brightness,omitempty"`
-	PollMs      *int         `json:"poll_interval_ms,omitempty"`
+	Instruction *Instruction  `json:"instruction,omitempty"`
+	Brightness  *int          `json:"brightness,omitempty"`
+	PollMs      *int          `json:"poll_interval_ms,omitempty"`
+	Config      *DeviceConfig `json:"config,omitempty"`
+}
+
+// DeviceConfig is the `config` block in a poll response. It carries persisted
+// device settings the firmware applies live and stores in NVS (syslog target,
+// timezone), so they can change without re-provisioning over serial. The
+// firmware deduplicates, so it's safe to send on every poll. A nil field is
+// omitted from the JSON (the firmware leaves it unchanged); an explicit empty
+// SyslogHost ("") tells the firmware to disable syslog.
+type DeviceConfig struct {
+	SyslogHost *string `json:"syslog_host,omitempty"`
+	Tz         *string `json:"tz,omitempty"`
 }
 
 // Instruction is the wire format for a widget instruction sent to devices.
@@ -133,9 +151,9 @@ type PendingOTA struct {
 // AlertConfig matches the alert structure in led-kurokku-go.
 // Stored in Redis as kurokku:alert:<id>.
 type AlertConfig struct {
-	ID                 string  `json:"id"`
-	Message            string  `json:"message"`
-	Priority           int     `json:"priority"`
-	DisplayDurationStr string  `json:"display_duration"`
-	DeleteAfterDisplay bool    `json:"delete_after_display"`
+	ID                 string `json:"id"`
+	Message            string `json:"message"`
+	Priority           int    `json:"priority"`
+	DisplayDurationStr string `json:"display_duration"`
+	DeleteAfterDisplay bool   `json:"delete_after_display"`
 }
