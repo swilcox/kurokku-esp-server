@@ -134,6 +134,31 @@ curl -X PUT http://localhost:8080/api/v1/admin/devices/esp32-001 \
   }'
 ```
 
+### Remote Device Config
+
+`syslog_host` and `tz` on a device are pushed to the firmware in the poll
+response's `config` block, letting you change a deployed device's logging target
+or timezone without re-flashing or serial re-provisioning (OTA replaces only the
+firmware image and preserves NVS). The firmware persists them to NVS and applies
+them live — no reboot. It also deduplicates, so the server returns the same
+`config` on every poll without churning the device's flash.
+
+```bash
+curl -X PUT http://localhost:8080/api/v1/admin/devices/esp32-001 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "display_type": "max7219",
+    "poll_ms": 5000,
+    "syslog_host": "192.168.1.50:5514",
+    "tz": "CST6CDT,M3.2.0,M11.1.0"
+  }'
+```
+
+Both fields are also editable from the device form in the admin UI. Omitting a
+field (or leaving it blank in the form) leaves the device's current value
+untouched. Sending `"syslog_host": ""` via the API explicitly disables syslog on
+the device.
+
 ### Message Widget Templates
 
 `message` widgets can render server-side placeholders at poll time while still sending a normal `"type": "message"` instruction to devices.

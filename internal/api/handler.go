@@ -97,6 +97,7 @@ func (h *Handler) handleDeviceInstruction(w http.ResponseWriter, r *http.Request
 		resp := &model.ServerResponse{
 			Instruction: &model.Instruction{Type: "ota", URL: pending.URL},
 			PollMs:      &pollMs,
+			Config:      deviceConfig(device),
 		}
 		h.recordDeviceStatusWithOTA(ctx, deviceID, r.RemoteAddr, firmwareVersion, resp.Instruction, pending)
 		h.jsonResponse(w, http.StatusOK, resp)
@@ -122,6 +123,7 @@ func (h *Handler) handleDeviceInstruction(w http.ResponseWriter, r *http.Request
 		h.serverError(w, "resolving playlist", err)
 		return
 	}
+	resp.Config = deviceConfig(device)
 
 	hasInstruction := resp.Instruction != nil
 	h.logger.Debug("device instruction response",
@@ -132,6 +134,16 @@ func (h *Handler) handleDeviceInstruction(w http.ResponseWriter, r *http.Request
 	h.recordDeviceStatusWithOTA(ctx, deviceID, r.RemoteAddr, firmwareVersion, resp.Instruction, nil)
 
 	h.jsonResponse(w, http.StatusOK, resp)
+}
+
+// deviceConfig builds the `config` block for a poll response from the device's
+// persisted settings, or nil when the device has nothing to assert. The
+// firmware deduplicates, so returning the same block on every poll is cheap.
+func deviceConfig(d *model.Device) *model.DeviceConfig {
+	if d.SyslogHost == nil && d.Tz == nil {
+		return nil
+	}
+	return &model.DeviceConfig{SyslogHost: d.SyslogHost, Tz: d.Tz}
 }
 
 // recordDeviceStatusWithOTA updates the device's LastSeen/LastInstruction,

@@ -119,6 +119,21 @@
             </div>
         </div>
 
+        <div class="form-row">
+            <div class="form-group">
+                <label for="syslog_host">Syslog Host (optional)</label>
+                <input type="text" id="syslog_host" name="syslog_host"
+                       value="{{if .Device.SyslogHost}}{{.Device.SyslogHost}}{{end}}"
+                       placeholder="host:port — e.g. 192.168.1.50:5514">
+            </div>
+            <div class="form-group">
+                <label for="tz">Timezone (optional)</label>
+                <input type="text" id="tz" name="tz"
+                       value="{{if .Device.Tz}}{{.Device.Tz}}{{end}}"
+                       placeholder="POSIX TZ — e.g. CST6CDT,M3.2.0,M11.1.0">
+            </div>
+        </div>
+
         <div class="actions">
             <button type="submit" class="btn btn-primary">{{if .IsNew}}Create Device{{else}}Save Changes{{end}}</button>
             <a href="/admin/devices" class="btn">Cancel</a>
