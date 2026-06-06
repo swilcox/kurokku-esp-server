@@ -507,6 +507,13 @@ func (w *WebHandler) deviceFromForm(r *http.Request) *model.Device {
 		}
 	}
 
+	if sys := strings.TrimSpace(r.FormValue("syslog_host")); sys != "" {
+		d.SyslogHost = &sys
+	}
+	if tz := strings.TrimSpace(r.FormValue("tz")); tz != "" {
+		d.Tz = &tz
+	}
+
 	return d
 }
 
