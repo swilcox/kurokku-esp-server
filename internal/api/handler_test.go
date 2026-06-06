@@ -364,3 +364,49 @@ func TestHandleDeletePlaylist(t *testing.T) {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNoContent)
 	}
 }
+
+func TestHandleDeviceInstruction_ConfigEmitted(t *testing.T) {
+	h, s := setupHandler(t)
+	ctx := httptest.NewRequest("GET", "/", nil).Context()
+
+	syslog := "192.168.1.50:5514"
+	tz := "CST6CDT,M3.2.0,M11.1.0"
+	s.UpsertDevice(ctx, &model.Device{
+		ID:         "dev-1",
+		PollMs:     5000,
+		SyslogHost: &syslog,
+		Tz:         &tz,
+	})
+
+	req := httptest.NewRequest("GET", "/api/v1/devices/dev-1/instruction", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	var resp model.ServerResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Config == nil {
+		t.Fatal("expected config block, got nil")
+	}
+	if resp.Config.SyslogHost == nil || *resp.Config.SyslogHost != syslog {
+		t.Errorf("syslog_host = %v, want %q", resp.Config.SyslogHost, syslog)
+	}
+	if resp.Config.Tz == nil || *resp.Config.Tz != tz {
+		t.Errorf("tz = %v, want %q", resp.Config.Tz, tz)
+	}
+}
+
+func TestHandleDeviceInstruction_ConfigOmittedWhenUnset(t *testing.T) {
+	h, s := setupHandler(t)
+	ctx := httptest.NewRequest("GET", "/", nil).Context()
+	s.UpsertDevice(ctx, &model.Device{ID: "dev-1", PollMs: 5000})
+
+	req := httptest.NewRequest("GET", "/api/v1/devices/dev-1/instruction", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	// A device with no syslog/tz must not carry a config block at all, so the
+	// firmware isn't asked to reconcile anything every poll.
+	if strings.Contains(w.Body.String(), "\"config\"") {
+		t.Errorf("expected no config key in response, got %s", w.Body.String())
+	}
+}
