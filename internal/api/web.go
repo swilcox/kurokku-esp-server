@@ -134,9 +134,25 @@ func (w *WebHandler) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 
 // --- Devices ---
 
+// deviceListView pairs a device with its latest reported firmware version for
+// the devices list table.
+type deviceListView struct {
+	model.Device
+	FirmwareVersion string
+}
+
 func (w *WebHandler) handleDevicesList(rw http.ResponseWriter, r *http.Request) {
-	devices, _ := w.store.ListDevices(r.Context())
-	w.render(rw, "devices.html", map[string]any{"Devices": devices})
+	ctx := r.Context()
+	devices, _ := w.store.ListDevices(ctx)
+	views := make([]deviceListView, len(devices))
+	for i, d := range devices {
+		v := deviceListView{Device: d}
+		if status, _ := w.store.GetDeviceStatus(ctx, d.ID); status != nil {
+			v.FirmwareVersion = status.FirmwareVersion
+		}
+		views[i] = v
+	}
+	w.render(rw, "devices.html", map[string]any{"Devices": views})
 }
 
 func (w *WebHandler) handleDeviceNew(rw http.ResponseWriter, r *http.Request) {
