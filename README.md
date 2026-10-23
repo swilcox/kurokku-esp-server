@@ -89,8 +89,13 @@ docker compose -f docker-compose.dev.yml up --build
 Used by ESP32 firmware:
 
 ```
-GET /api/v1/devices/{device_id}/instruction?display_type=max7219
+GET  /api/v1/devices/{device_id}/instruction?display_type=max7219
+POST /api/v1/devices/{device_id}/events   {"event": "next"}   # or "prev"
 ```
+
+Events come from input on the device (e.g. a swipe on an amoled480). `next`
+and `prev` move the device to the next or previous active playlist entry,
+with a fresh duration; the device's next poll returns it. Responds 204.
 
 ### Admin CRUD
 
