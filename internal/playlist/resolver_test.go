@@ -638,3 +638,42 @@ func TestResolve_AmoledFieldsPassThrough(t *testing.T) {
 		t.Fatalf("plain message gained AMOLED options: %+v", plain)
 	}
 }
+
+func TestResolve_ImageAndSlideshowOnlyForAmoled(t *testing.T) {
+	r, _ := setupResolver(t)
+	ctx := context.Background()
+	pl := makePlaylist(
+		model.PlaylistEntry{ID: "e-img", DurationSec: 10, Widget: model.Widget{Type: "image", ImageID: "abc123"}},
+		clockEntry(10),
+	)
+
+	amoled := makeDevice("amoled")
+	amoled.DisplayType = model.DisplayAMOLED480
+	resp, err := r.Resolve(ctx, amoled, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Instruction == nil || resp.Instruction.Type != "image" || resp.Instruction.URL != "/api/v1/images/abc123.qoi" {
+		t.Fatalf("amoled instruction = %+v", resp.Instruction)
+	}
+
+	// LED firmware can't parse image instructions: the entry is skipped.
+	led := makeDevice("led")
+	led.DisplayType = model.DisplayMAX7219
+	resp, err = r.Resolve(ctx, led, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Instruction == nil || resp.Instruction.Type != "clock" {
+		t.Fatalf("led instruction = %+v, want the clock", resp.Instruction)
+	}
+
+	show := widgetToInstruction(&model.Widget{Type: "slideshow", Path: "sd:/photos", IntervalSecs: 7}, 30)
+	if show.Path != "sd:/photos" || show.IntervalSecs != 7 {
+		t.Fatalf("slideshow instruction = %+v", show)
+	}
+	ext := widgetToInstruction(&model.Widget{Type: "image", URL: "https://x/y.qoi"}, 30)
+	if ext.URL != "https://x/y.qoi" {
+		t.Fatalf("external image url = %q", ext.URL)
+	}
+}

@@ -40,6 +40,7 @@ func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir str
 
 	funcMap := template.FuncMap{
 		"inc": func(i int) int { return i + 1 },
+		"kb":  func(n int) int { return (n + 512) / 1024 },
 		"entryCron": func(e model.PlaylistEntry) string {
 			return e.CronExpr
 		},
@@ -61,6 +62,7 @@ func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir str
 		"device_form.html",
 		"playlists.html",
 		"playlist_form.html",
+		"images.html",
 	}
 
 	for _, page := range pages {
@@ -109,6 +111,10 @@ func (w *WebHandler) registerRoutes() {
 	w.mux.HandleFunc("GET /admin/devices/{id}/firmware", w.handleFirmwareCard)
 	w.mux.HandleFunc("POST /admin/devices/{id}/ota", w.handleOTATrigger)
 	w.mux.HandleFunc("DELETE /admin/devices/{id}/ota", w.handleOTACancel)
+
+	w.mux.HandleFunc("GET /admin/images", w.handleImagesList)
+	w.mux.HandleFunc("POST /admin/images", w.handleImageUpload)
+	w.mux.HandleFunc("DELETE /admin/images/{id}", w.handleImageDelete)
 
 	w.mux.HandleFunc("GET /admin/playlists", w.handlePlaylistsList)
 	w.mux.HandleFunc("GET /admin/playlists/new", w.handlePlaylistNew)
@@ -544,6 +550,7 @@ func (w *WebHandler) handlePlaylistNew(rw http.ResponseWriter, r *http.Request) 
 	w.render(rw, "playlist_form.html", map[string]any{
 		"IsNew":    true,
 		"Playlist": &model.Playlist{},
+		"Images":   w.images(r.Context()),
 	})
 }
 
@@ -560,6 +567,7 @@ func (w *WebHandler) handlePlaylistCreate(rw http.ResponseWriter, r *http.Reques
 		w.render(rw, "playlist_form.html", map[string]any{
 			"IsNew":    true,
 			"Playlist": pl,
+			"Images":   w.images(r.Context()),
 			"Errors":   errs,
 		})
 		return
@@ -582,6 +590,7 @@ func (w *WebHandler) handlePlaylistEdit(rw http.ResponseWriter, r *http.Request)
 	w.render(rw, "playlist_form.html", map[string]any{
 		"IsNew":    false,
 		"Playlist": pl,
+		"Images":   w.images(r.Context()),
 	})
 }
 
@@ -594,6 +603,7 @@ func (w *WebHandler) handlePlaylistUpdate(rw http.ResponseWriter, r *http.Reques
 		w.render(rw, "playlist_form.html", map[string]any{
 			"IsNew":    false,
 			"Playlist": pl,
+			"Images":   w.images(r.Context()),
 			"Errors":   errs,
 		})
 		return
@@ -643,6 +653,15 @@ func (w *WebHandler) playlistFromForm(r *http.Request, id string) *model.Playlis
 			widget.Direction = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_msg_direction_%d", i)))
 			widget.Color = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_msg_color_%d", i)))
 			widget.Size = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_msg_size_%d", i)))
+		case "image":
+			widget.ImageID = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_image_id_%d", i)))
+			widget.URL = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_image_url_%d", i)))
+		case "slideshow":
+			widget.Path = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_slide_path_%d", i)))
+			if widget.Path == "" {
+				widget.Path = "sd:/images"
+			}
+			widget.IntervalSecs, _ = strconv.Atoi(r.FormValue(fmt.Sprintf("entry_slide_interval_%d", i)))
 		case "animation":
 			widget.Animation = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_anim_%d", i)))
 			if widget.Animation == "" {
@@ -667,6 +686,9 @@ func (w *WebHandler) playlistFromForm(r *http.Request, id string) *model.Playlis
 func validatePlaylist(pl *model.Playlist) []string {
 	var errs []string
 	for i, e := range pl.Entries {
+		if e.Widget.Type == "image" && e.Widget.ImageID == "" && e.Widget.URL == "" {
+			errs = append(errs, fmt.Sprintf("Entry %d: pick a library image or enter an image URL", i+1))
+		}
 		if e.CronExpr == "" {
 			continue
 		}
@@ -675,6 +697,44 @@ func validatePlaylist(pl *model.Playlist) []string {
 		}
 	}
 	return errs
+}
+
+// --- Images ---
+
+// images lists the image library for pickers; errors yield an empty list.
+func (w *WebHandler) images(ctx context.Context) []model.Image {
+	images, err := w.store.ListImages(ctx)
+	if err != nil {
+		w.logger.Error("listing images", "error", err)
+	}
+	return images
+}
+
+func (w *WebHandler) handleImagesList(rw http.ResponseWriter, r *http.Request) {
+	w.render(rw, "images.html", map[string]any{"Images": w.images(r.Context())})
+}
+
+func (w *WebHandler) handleImageUpload(rw http.ResponseWriter, r *http.Request) {
+	f, name, fit, err := uploadFromRequest(r)
+	if err == nil {
+		defer f.Close()
+		_, err = createImage(r.Context(), w.store, name, fit, f)
+	}
+	if err != nil {
+		w.render(rw, "images.html", map[string]any{
+			"Images": w.images(r.Context()),
+			"Errors": []string{err.Error()},
+		})
+		return
+	}
+	http.Redirect(rw, r, "/admin/images", http.StatusSeeOther)
+}
+
+func (w *WebHandler) handleImageDelete(rw http.ResponseWriter, r *http.Request) {
+	if err := w.store.DeleteImage(r.Context(), r.PathValue("id")); err != nil {
+		w.logger.Error("deleting image", "error", err)
+	}
+	rw.WriteHeader(http.StatusOK)
 }
 
 func (w *WebHandler) render(rw http.ResponseWriter, name string, data any) {
