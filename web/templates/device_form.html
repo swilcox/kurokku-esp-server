@@ -57,6 +57,7 @@
                 <select id="display_type" name="display_type">
                     <option value="max7219" {{if eq (printf "%s" .Device.DisplayType) "max7219"}}selected{{end}}>MAX7219 (32x8 pixel)</option>
                     <option value="tm1637" {{if eq (printf "%s" .Device.DisplayType) "tm1637"}}selected{{end}}>TM1637 (4-digit 7-segment)</option>
+                    <option value="amoled480" {{if eq (printf "%s" .Device.DisplayType) "amoled480"}}selected{{end}}>AMOLED 480x480 (Waveshare ESP32-C6 2.16")</option>
                 </select>
             </div>
             <div class="form-group">

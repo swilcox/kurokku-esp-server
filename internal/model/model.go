@@ -6,8 +6,9 @@ import "time"
 type DisplayType string
 
 const (
-	DisplayMAX7219 DisplayType = "max7219"
-	DisplayTM1637  DisplayType = "tm1637"
+	DisplayMAX7219   DisplayType = "max7219"
+	DisplayTM1637    DisplayType = "tm1637"
+	DisplayAMOLED480 DisplayType = "amoled480"
 )
 
 // Device represents a registered ESP32 display device.
@@ -64,12 +65,22 @@ type Widget struct {
 
 	// clock
 	Format24h bool `json:"format_24h,omitempty"`
+	// Style names a clock face (amoled480 only, e.g. "modern"). Empty =
+	// device default. LED displays ignore it.
+	Style string `json:"style,omitempty"`
 
 	// message
 	Text          string `json:"text,omitempty"`
 	ScrollSpeedMs int    `json:"scroll_speed_ms,omitempty"`
 	Repeats       int    `json:"repeats,omitempty"`
 	RedisKey      string `json:"redis_key,omitempty"`
+	// Direction, Color and Size are amoled480-only message options; LED
+	// displays ignore them. Direction is "left" (marquee, default) or "up"
+	// (vertical crawl); Color is "#RRGGBB"; Size is "small", "medium" or
+	// "large". Empty = device default.
+	Direction string `json:"direction,omitempty"`
+	Color     string `json:"color,omitempty"`
+	Size      string `json:"size,omitempty"`
 
 	// animation
 	Animation string `json:"animation,omitempty"`
@@ -118,6 +129,11 @@ type Instruction struct {
 	Segments      []uint16 `json:"segments,omitempty"`
 	Colon         bool     `json:"colon,omitempty"`
 	URL           string   `json:"url,omitempty"`
+	// amoled480-only options; see Widget.
+	Style     string `json:"style,omitempty"`
+	Direction string `json:"direction,omitempty"`
+	Color     string `json:"color,omitempty"`
+	Size      string `json:"size,omitempty"`
 }
 
 // PlaylistState is the ephemeral per-device state stored in Redis.
