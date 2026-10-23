@@ -230,6 +230,13 @@ func (r *Resolver) buildInstruction(ctx context.Context, device *model.Device, e
 		return r.buildAlertInstruction(ctx, device, entry)
 	case "message":
 		return r.buildMessageInstruction(ctx, entry)
+	case "image", "slideshow":
+		// Only amoled480 firmware understands these; LED firmware would fail
+		// to parse the response. Skip the entry for other displays.
+		if device == nil || device.DisplayType != model.DisplayAMOLED480 {
+			return nil, nil
+		}
+		return widgetToInstruction(w, entry.DurationSec), nil
 	default:
 		return widgetToInstruction(w, entry.DurationSec), nil
 	}
@@ -409,6 +416,11 @@ func (r *Resolver) buildAlertInstruction(ctx context.Context, device *model.Devi
 	}, nil
 }
 
+// ImagePath is where devices fetch a library image.
+func ImagePath(id string) string {
+	return "/api/v1/images/" + id + ".qoi"
+}
+
 func widgetToInstruction(w *model.Widget, durationSec int) *model.Instruction {
 	inst := &model.Instruction{
 		Type:         w.Type,
@@ -433,6 +445,15 @@ func widgetToInstruction(w *model.Widget, durationSec int) *model.Instruction {
 		if inst.Repeats == 0 {
 			inst.Repeats = -1
 		}
+	case "image":
+		inst.URL = w.URL
+		if w.ImageID != "" {
+			// Relative: the device resolves it against its server URL.
+			inst.URL = ImagePath(w.ImageID)
+		}
+	case "slideshow":
+		inst.Path = w.Path
+		inst.IntervalSecs = w.IntervalSecs
 	case "animation":
 		inst.Animation = w.Animation
 	case "raw_pixel":

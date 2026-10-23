@@ -121,3 +121,57 @@ func TestPlaylistCreate_AmoledFieldsSaved(t *testing.T) {
 		t.Errorf("message widget = %+v", m)
 	}
 }
+
+func TestPlaylistCreate_ImageAndSlideshowSaved(t *testing.T) {
+	h := newTestWebHandler(t)
+
+	form := url.Values{}
+	form.Set("id", "pics")
+	form.Set("name", "Pictures")
+	form.Set("entry_type_0", "image")
+	form.Set("entry_duration_0", "30")
+	form.Set("entry_image_id_0", "abc123")
+	form.Set("entry_type_1", "slideshow")
+	form.Set("entry_duration_1", "60")
+	form.Set("entry_slide_interval_1", "8")
+	form.Set("entry_type_2", "image") // neither image nor URL: rejected
+
+	req := httptest.NewRequest("POST", "/admin/playlists/new", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Entry 3: pick a library image") {
+		t.Fatalf("expected validation error, got %d", w.Code)
+	}
+
+	form.Set("entry_image_url_2", "sd:/images/cat.qoi")
+	req = httptest.NewRequest("POST", "/admin/playlists/new", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d: %s", w.Code, w.Body.String())
+	}
+	pl, err := h.store.GetPlaylist(context.Background(), "pics")
+	if err != nil || pl == nil || len(pl.Entries) != 3 {
+		t.Fatalf("GetPlaylist = %+v, %v", pl, err)
+	}
+	if e := pl.Entries[0].Widget; e.ImageID != "abc123" {
+		t.Errorf("image widget = %+v", e)
+	}
+	if e := pl.Entries[1].Widget; e.Path != "sd:/images" || e.IntervalSecs != 8 {
+		t.Errorf("slideshow widget = %+v (empty path should default)", e)
+	}
+	if e := pl.Entries[2].Widget; e.URL != "sd:/images/cat.qoi" {
+		t.Errorf("url image widget = %+v", e)
+	}
+}
+
+func TestImagesPage_Renders(t *testing.T) {
+	h := newTestWebHandler(t)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/admin/images", nil))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "No images uploaded yet") {
+		t.Fatalf("images page: %d", w.Code)
+	}
+}

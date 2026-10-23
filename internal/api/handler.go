@@ -50,6 +50,11 @@ func (h *Handler) registerRoutes() {
 	h.mux.HandleFunc("GET /api/v1/admin/firmware/{display_type}", h.handleGetFirmwareURL)
 	h.mux.HandleFunc("PUT /api/v1/admin/firmware/{display_type}", h.handleSetFirmwareURL)
 
+	h.mux.HandleFunc("GET /api/v1/images/{file}", func(w http.ResponseWriter, r *http.Request) { serveImage(h.store, w, r) })
+	h.mux.HandleFunc("GET /api/v1/admin/images", h.handleListImages)
+	h.mux.HandleFunc("POST /api/v1/admin/images", h.handleCreateImage)
+	h.mux.HandleFunc("DELETE /api/v1/admin/images/{image_id}", h.handleDeleteImage)
+
 	h.mux.HandleFunc("GET /api/v1/admin/playlists", h.handleListPlaylists)
 	h.mux.HandleFunc("GET /api/v1/admin/playlists/{playlist_id}", h.handleGetPlaylist)
 	h.mux.HandleFunc("PUT /api/v1/admin/playlists/{playlist_id}", h.handleUpsertPlaylist)
@@ -384,6 +389,45 @@ func isValidFirmwareURL(raw string) bool {
 		return false
 	}
 	return u.Host != ""
+}
+
+// --- Images ---
+
+func (h *Handler) handleListImages(w http.ResponseWriter, r *http.Request) {
+	images, err := h.store.ListImages(r.Context())
+	if err != nil {
+		h.serverError(w, "listing images", err)
+		return
+	}
+	if images == nil {
+		images = []model.Image{}
+	}
+	h.jsonResponse(w, http.StatusOK, images)
+}
+
+// handleCreateImage accepts a multipart upload: "file" (JPEG, PNG or GIF),
+// optional "name" and "fit" ("cover", the default, or "contain").
+func (h *Handler) handleCreateImage(w http.ResponseWriter, r *http.Request) {
+	f, name, fit, err := uploadFromRequest(r)
+	if err != nil {
+		h.jsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	defer f.Close()
+	img, err := createImage(r.Context(), h.store, name, fit, f)
+	if err != nil {
+		h.jsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	h.jsonResponse(w, http.StatusCreated, img)
+}
+
+func (h *Handler) handleDeleteImage(w http.ResponseWriter, r *http.Request) {
+	if err := h.store.DeleteImage(r.Context(), r.PathValue("image_id")); err != nil {
+		h.serverError(w, "deleting image", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) jsonResponse(w http.ResponseWriter, status int, data any) {

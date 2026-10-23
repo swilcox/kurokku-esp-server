@@ -1,0 +1,67 @@
+{{define "title"}}クロック — Images{{end}}
+
+{{define "content"}}
+<style>
+    .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .image-card { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .image-card img { width: 100%; aspect-ratio: 1; border-radius: 0.5rem; background: #000; object-fit: cover; }
+    .image-card .image-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .image-card .image-meta { font-size: 0.8rem; opacity: 0.75; }
+    .upload-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+    .upload-row .form-group { margin-bottom: 0; }
+</style>
+
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Content</div>
+        <h1>Images</h1>
+        <p class="page-copy">Pictures for AMOLED displays. Uploads (JPEG, PNG or GIF) are converted to 480×480 and served to devices; add them to a playlist with an <em>Image</em> entry. LED displays skip image entries.</p>
+    </div>
+</div>
+
+{{if .Errors}}
+<div class="card mt-1">
+    {{range .Errors}}<p class="error">{{.}}</p>{{end}}
+</div>
+{{end}}
+
+<form class="card" method="post" action="/admin/images" enctype="multipart/form-data">
+    <div class="upload-row">
+        <div class="form-group">
+            <label for="file">Image</label>
+            <input type="file" id="file" name="file" accept="image/jpeg,image/png,image/gif" required>
+        </div>
+        <div class="form-group">
+            <label for="name">Name (optional)</label>
+            <input type="text" id="name" name="name" placeholder="defaults to the file name">
+        </div>
+        <div class="form-group">
+            <label for="fit" title="Cover fills the square screen and crops the edges; contain shows the whole picture on black.">Fit</label>
+            <select id="fit" name="fit">
+                <option value="cover" selected>cover (crop to fill)</option>
+                <option value="contain">contain (letterbox)</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+</form>
+
+{{if .Images}}
+<div class="image-grid">
+    {{range .Images}}
+    <div class="card image-card">
+        <img src="/api/v1/images/{{.ID}}.jpg" alt="{{.Name}}" loading="lazy">
+        <div class="image-name" title="{{.Name}}">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</div>
+        <div class="image-meta"><code>{{.ID}}</code> · {{kb .Bytes}} KB · {{.Fit}}</div>
+        <button class="btn btn-danger btn-sm"
+            hx-delete="/admin/images/{{.ID}}"
+            hx-confirm="Delete image {{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}? Playlist entries using it will show an error on the device."
+            hx-target="closest .image-card"
+            hx-swap="outerHTML swap:0.3s">Delete</button>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">No images uploaded yet.</div>
+{{end}}
+{{end}}
