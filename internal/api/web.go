@@ -634,11 +634,15 @@ func (w *WebHandler) playlistFromForm(r *http.Request, id string) *model.Playlis
 		switch entryType {
 		case "clock":
 			widget.Format24h = r.FormValue(fmt.Sprintf("entry_clock_24h_%d", i)) != "false"
+			widget.Style = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_clock_style_%d", i)))
 		case "message":
 			widget.Text = r.FormValue(fmt.Sprintf("entry_msg_text_%d", i))
 			widget.ScrollSpeedMs, _ = strconv.Atoi(r.FormValue(fmt.Sprintf("entry_msg_speed_%d", i)))
 			widget.Repeats, _ = strconv.Atoi(r.FormValue(fmt.Sprintf("entry_msg_repeats_%d", i)))
 			widget.RedisKey = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_redis_key_%d", i)))
+			widget.Direction = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_msg_direction_%d", i)))
+			widget.Color = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_msg_color_%d", i)))
+			widget.Size = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_msg_size_%d", i)))
 		case "animation":
 			widget.Animation = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_anim_%d", i)))
 			if widget.Animation == "" {

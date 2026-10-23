@@ -70,6 +70,16 @@
                                         <option value="false" {{if not $e.Widget.Format24h}}selected{{end}}>12-hour</option>
                                     </select>
                                 </div>
+                                <div class="entry-field">
+                                    <label title="Clock face on AMOLED displays. LED displays ignore it.">Style (AMOLED)</label>
+                                    <select name="entry_clock_style_{{$i}}">
+                                        <option value="" {{if eq $e.Widget.Style ""}}selected{{end}}>default</option>
+                                        <option value="modern" {{if eq $e.Widget.Style "modern"}}selected{{end}}>modern</option>
+                                        {{if and $e.Widget.Style (ne $e.Widget.Style "modern")}}
+                                        <option value="{{$e.Widget.Style}}" selected>{{$e.Widget.Style}} (custom)</option>
+                                        {{end}}
+                                    </select>
+                                </div>
                             </div>
 
                             <div class="entry-panel panel-message" {{if ne $e.Widget.Type "message"}}hidden{{end}}>
@@ -88,6 +98,27 @@
                                 <div class="entry-field entry-field-wide">
                                     <label title="Optional Redis value used by &#123;&#123;redis&#125;&#125; or, if no placeholders are present, as the full message override.">Redis key (optional)</label>
                                     <input type="text" name="entry_redis_key_{{$i}}" value="{{entryRedisKey $e}}" placeholder="kurokku:temperature">
+                                </div>
+                                <div class="entry-field">
+                                    <label title="AMOLED only: left = one-line marquee, up = word-wrapped vertical crawl. LED displays ignore it.">Direction (AMOLED)</label>
+                                    <select name="entry_msg_direction_{{$i}}">
+                                        <option value="" {{if eq $e.Widget.Direction ""}}selected{{end}}>default (left)</option>
+                                        <option value="left" {{if eq $e.Widget.Direction "left"}}selected{{end}}>left</option>
+                                        <option value="up" {{if eq $e.Widget.Direction "up"}}selected{{end}}>up</option>
+                                    </select>
+                                </div>
+                                <div class="entry-field">
+                                    <label title="AMOLED only: text size. Default is large for left, medium for up. LED displays ignore it.">Size (AMOLED)</label>
+                                    <select name="entry_msg_size_{{$i}}">
+                                        <option value="" {{if eq $e.Widget.Size ""}}selected{{end}}>default</option>
+                                        <option value="small" {{if eq $e.Widget.Size "small"}}selected{{end}}>small</option>
+                                        <option value="medium" {{if eq $e.Widget.Size "medium"}}selected{{end}}>medium</option>
+                                        <option value="large" {{if eq $e.Widget.Size "large"}}selected{{end}}>large</option>
+                                    </select>
+                                </div>
+                                <div class="entry-field">
+                                    <label title="AMOLED only: text color as #RRGGBB. Empty = white. LED displays ignore it.">Color (AMOLED)</label>
+                                    <input type="text" name="entry_msg_color_{{$i}}" value="{{$e.Widget.Color}}" placeholder="#ffffff" pattern="#?[0-9a-fA-F]{6}">
                                 </div>
                             </div>
 
@@ -183,6 +214,13 @@
                             <option value="false">12-hour</option>
                         </select>
                     </div>
+                    <div class="entry-field">
+                        <label title="Clock face on AMOLED displays. LED displays ignore it.">Style (AMOLED)</label>
+                        <select name="entry_clock_style_0">
+                            <option value="" selected>default</option>
+                            <option value="modern">modern</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="entry-panel panel-message" hidden>
                     <div class="entry-field entry-field-wide">
@@ -200,6 +238,27 @@
                     <div class="entry-field entry-field-wide">
                         <label title="If set and key has a value, replaces the message text at display time.">Redis key (optional)</label>
                         <input type="text" name="entry_redis_key_0" placeholder="kurokku:temperature">
+                    </div>
+                    <div class="entry-field">
+                        <label title="AMOLED only: left = one-line marquee, up = word-wrapped vertical crawl. LED displays ignore it.">Direction (AMOLED)</label>
+                        <select name="entry_msg_direction_0">
+                            <option value="" selected>default (left)</option>
+                            <option value="left">left</option>
+                            <option value="up">up</option>
+                        </select>
+                    </div>
+                    <div class="entry-field">
+                        <label title="AMOLED only: text size. Default is large for left, medium for up. LED displays ignore it.">Size (AMOLED)</label>
+                        <select name="entry_msg_size_0">
+                            <option value="" selected>default</option>
+                            <option value="small">small</option>
+                            <option value="medium">medium</option>
+                            <option value="large">large</option>
+                        </select>
+                    </div>
+                    <div class="entry-field">
+                        <label title="AMOLED only: text color as #RRGGBB. Empty = white. LED displays ignore it.">Color (AMOLED)</label>
+                        <input type="text" name="entry_msg_color_0" placeholder="#ffffff" pattern="#?[0-9a-fA-F]{6}">
                     </div>
                 </div>
                 <div class="entry-panel panel-animation" hidden>
