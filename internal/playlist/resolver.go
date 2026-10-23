@@ -419,8 +419,12 @@ func widgetToInstruction(w *model.Widget, durationSec int) *model.Instruction {
 	case "clock":
 		f := w.Format24h
 		inst.Format24h = &f
+		inst.Style = w.Style
 	case "message":
 		inst.Text = w.Text
+		inst.Direction = w.Direction
+		inst.Color = w.Color
+		inst.Size = w.Size
 		inst.ScrollSpeedMs = w.ScrollSpeedMs
 		if inst.ScrollSpeedMs == 0 {
 			inst.ScrollSpeedMs = 50
