@@ -82,6 +82,16 @@ type Widget struct {
 	Color     string `json:"color,omitempty"`
 	Size      string `json:"size,omitempty"`
 
+	// image (amoled480 only): a library image (ImageID) or an external
+	// QOI URL. Library images are served at /api/v1/images/{id}.qoi.
+	ImageID string `json:"image_id,omitempty"`
+	URL     string `json:"url,omitempty"`
+
+	// slideshow (amoled480 only): a folder of .qoi files on the device's
+	// SD card, e.g. "sd:/images", advanced every IntervalSecs.
+	Path         string `json:"path,omitempty"`
+	IntervalSecs int    `json:"interval_secs,omitempty"`
+
 	// animation
 	Animation string `json:"animation,omitempty"`
 
@@ -130,10 +140,22 @@ type Instruction struct {
 	Colon         bool     `json:"colon,omitempty"`
 	URL           string   `json:"url,omitempty"`
 	// amoled480-only options; see Widget.
-	Style     string `json:"style,omitempty"`
-	Direction string `json:"direction,omitempty"`
-	Color     string `json:"color,omitempty"`
-	Size      string `json:"size,omitempty"`
+	Style        string `json:"style,omitempty"`
+	Direction    string `json:"direction,omitempty"`
+	Color        string `json:"color,omitempty"`
+	Size         string `json:"size,omitempty"`
+	Path         string `json:"path,omitempty"`
+	IntervalSecs int    `json:"interval_secs,omitempty"`
+}
+
+// Image is a library image converted for amoled480 displays. The QOI data
+// and JPEG thumbnail are stored separately; see store.SaveImage.
+type Image struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Fit       string    `json:"fit"`
+	Bytes     int       `json:"bytes"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // PlaylistState is the ephemeral per-device state stored in Redis.

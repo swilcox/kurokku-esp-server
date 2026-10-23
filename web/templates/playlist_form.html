@@ -48,6 +48,8 @@
                                     <option value="message" {{if eq $e.Widget.Type "message"}}selected{{end}}>Message</option>
                                     <option value="animation" {{if eq $e.Widget.Type "animation"}}selected{{end}}>Animation</option>
                                     <option value="alert" {{if eq $e.Widget.Type "alert"}}selected{{end}}>Alert</option>
+                                    <option value="image" {{if eq $e.Widget.Type "image"}}selected{{end}}>Image (AMOLED)</option>
+                                    <option value="slideshow" {{if eq $e.Widget.Type "slideshow"}}selected{{end}}>Slideshow (AMOLED SD)</option>
                                 </select>
                             </div>
                             <div class="entry-field entry-field-duration">
@@ -140,6 +142,29 @@
                                 </div>
                             </div>
 
+                            <div class="entry-panel panel-image" {{if ne $e.Widget.Type "image"}}hidden{{end}}>
+                                <div class="entry-field entry-field-wide">
+                                    <label title="AMOLED only (LED displays skip this entry). Upload pictures on the Images page.">Library image</label>
+                                    <select name="entry_image_id_{{$i}}">
+                                        <option value="" {{if eq $e.Widget.ImageID ""}}selected{{end}}>— none (use URL below) —</option>
+                                        {{range $.Images}}<option value="{{.ID}}" {{if eq .ID $e.Widget.ImageID}}selected{{end}}>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</option>{{end}}
+                                    </select>
+                                </div>
+                                <div class="entry-field entry-field-wide">
+                                    <label title="Instead of a library image: a 480x480 QOI at an http(s):// URL, or a file on the device's SD card as sd:/path.qoi.">Image URL (optional)</label>
+                                    <input type="text" name="entry_image_url_{{$i}}" value="{{$e.Widget.URL}}" placeholder="sd:/images/photo.qoi or https://…/photo.qoi">
+                                </div>
+                            </div>
+                            <div class="entry-panel panel-slideshow" {{if ne $e.Widget.Type "slideshow"}}hidden{{end}}>
+                                <div class="entry-field entry-field-wide">
+                                    <label title="AMOLED only: a folder of .qoi files on the device's SD card (tools/img2qoi.py makes them).">SD folder</label>
+                                    <input type="text" name="entry_slide_path_{{$i}}" value="{{$e.Widget.Path}}" placeholder="sd:/images">
+                                </div>
+                                <div class="entry-field">
+                                    <label title="Seconds per picture.">Interval (sec)</label>
+                                    <input type="number" name="entry_slide_interval_{{$i}}" value="{{if $e.Widget.IntervalSecs}}{{$e.Widget.IntervalSecs}}{{end}}" min="1" placeholder="10">
+                                </div>
+                            </div>
                             <div class="entry-panel panel-alert" {{if ne $e.Widget.Type "alert"}}hidden{{end}}>
                                 <p class="entry-note">Alert content is read from Redis (<code>kurokku:alert:*</code>) at display time and each alert supplies its own display duration. If no alerts are queued, this entry is skipped entirely and the playlist advances to the next entry — the Duration field above has no effect on alert widgets.</p>
                             </div>
@@ -192,6 +217,8 @@
                         <option value="message">Message</option>
                         <option value="animation">Animation</option>
                         <option value="alert">Alert</option>
+                        <option value="image">Image (AMOLED)</option>
+                        <option value="slideshow">Slideshow (AMOLED SD)</option>
                     </select>
                 </div>
                 <div class="entry-field entry-field-duration">
@@ -273,6 +300,29 @@
                             <option value="sine">sine</option>
                             <option value="random">random</option>
                         </select>
+                    </div>
+                </div>
+                <div class="entry-panel panel-image" hidden>
+                    <div class="entry-field entry-field-wide">
+                        <label title="AMOLED only (LED displays skip this entry). Upload pictures on the Images page.">Library image</label>
+                        <select name="entry_image_id_0">
+                            <option value="" >— none (use URL below) —</option>
+                            {{range $.Images}}<option value="{{.ID}}" >{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</option>{{end}}
+                        </select>
+                    </div>
+                    <div class="entry-field entry-field-wide">
+                        <label title="Instead of a library image: a 480x480 QOI at an http(s):// URL, or a file on the device's SD card as sd:/path.qoi.">Image URL (optional)</label>
+                        <input type="text" name="entry_image_url_0" value="" placeholder="sd:/images/photo.qoi or https://…/photo.qoi">
+                    </div>
+                </div>
+                <div class="entry-panel panel-slideshow" hidden>
+                    <div class="entry-field entry-field-wide">
+                        <label title="AMOLED only: a folder of .qoi files on the device's SD card (tools/img2qoi.py makes them).">SD folder</label>
+                        <input type="text" name="entry_slide_path_0" value="" placeholder="sd:/images">
+                    </div>
+                    <div class="entry-field">
+                        <label title="Seconds per picture.">Interval (sec)</label>
+                        <input type="number" name="entry_slide_interval_0" value="" min="1" placeholder="10">
                     </div>
                 </div>
                 <div class="entry-panel panel-alert" hidden>
