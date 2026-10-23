@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -27,6 +28,11 @@ func firmwareKey(displayType string) string {
 	return fmt.Sprintf("kurokku:firmware:%s", displayType)
 }
 
+func imageMetaKey(id string) string  { return fmt.Sprintf("kurokku:image:%s", id) }
+func imageQOIKey(id string) string   { return fmt.Sprintf("kurokku:image:%s:qoi", id) }
+func imageThumbKey(id string) string { return fmt.Sprintf("kurokku:image:%s:thumb", id) }
+
+const imageIndexKey = "kurokku:images"
 const deviceIndexKey = "kurokku:devices"
 const playlistIndexKey = "kurokku:playlists"
 
@@ -280,5 +286,87 @@ func (s *RedisStore) DeletePlaylist(ctx context.Context, id string) error {
 	pipe.Del(ctx, playlistKey(id))
 	pipe.SRem(ctx, playlistIndexKey, id)
 	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// --- Images ---
+
+// SaveImage stores a library image: metadata, QOI data and thumbnail.
+func (s *RedisStore) SaveImage(ctx context.Context, img *model.Image, qoi, thumb []byte) error {
+	data, err := json.Marshal(img)
+	if err != nil {
+		return err
+	}
+	_, err = s.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
+		p.Set(ctx, imageMetaKey(img.ID), data, 0)
+		p.Set(ctx, imageQOIKey(img.ID), qoi, 0)
+		p.Set(ctx, imageThumbKey(img.ID), thumb, 0)
+		p.SAdd(ctx, imageIndexKey, img.ID)
+		return nil
+	})
+	return err
+}
+
+func (s *RedisStore) GetImage(ctx context.Context, id string) (*model.Image, error) {
+	data, err := s.rdb.Get(ctx, imageMetaKey(id)).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var img model.Image
+	return &img, json.Unmarshal(data, &img)
+}
+
+// ListImages returns library images, newest first.
+func (s *RedisStore) ListImages(ctx context.Context) ([]model.Image, error) {
+	ids, err := s.rdb.SMembers(ctx, imageIndexKey).Result()
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	keys := make([]string, len(ids))
+	for i, id := range ids {
+		keys[i] = imageMetaKey(id)
+	}
+	vals, err := s.rdb.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+	var images []model.Image
+	for _, v := range vals {
+		if v == nil {
+			continue
+		}
+		var img model.Image
+		if err := json.Unmarshal([]byte(v.(string)), &img); err != nil {
+			return nil, err
+		}
+		images = append(images, img)
+	}
+	sort.Slice(images, func(i, j int) bool { return images[i].CreatedAt.After(images[j].CreatedAt) })
+	return images, nil
+}
+
+// GetImageData returns the QOI data (thumb=false) or JPEG thumbnail, or nil
+// if the image doesn't exist.
+func (s *RedisStore) GetImageData(ctx context.Context, id string, thumb bool) ([]byte, error) {
+	key := imageQOIKey(id)
+	if thumb {
+		key = imageThumbKey(id)
+	}
+	data, err := s.rdb.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	return data, err
+}
+
+func (s *RedisStore) DeleteImage(ctx context.Context, id string) error {
+	_, err := s.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
+		p.Del(ctx, imageMetaKey(id), imageQOIKey(id), imageThumbKey(id))
+		p.SRem(ctx, imageIndexKey, id)
+		return nil
+	})
 	return err
 }
