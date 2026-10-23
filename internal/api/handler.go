@@ -38,6 +38,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) registerRoutes() {
 	h.mux.HandleFunc("GET /api/v1/devices/{device_id}/instruction", h.handleDeviceInstruction)
+	h.mux.HandleFunc("POST /api/v1/devices/{device_id}/events", h.handleDeviceEvent)
 
 	h.mux.HandleFunc("GET /api/v1/admin/devices", h.handleListDevices)
 	h.mux.HandleFunc("GET /api/v1/admin/devices/{device_id}", h.handleGetDevice)
