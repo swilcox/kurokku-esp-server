@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -81,5 +82,42 @@ func TestPlaylistCreate_ValidForm_Redirects(t *testing.T) {
 
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("expected 303 redirect, got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPlaylistCreate_AmoledFieldsSaved(t *testing.T) {
+	h := newTestWebHandler(t)
+
+	form := url.Values{}
+	form.Set("id", "amoled-pl")
+	form.Set("name", "AMOLED")
+	form.Set("entry_type_0", "clock")
+	form.Set("entry_duration_0", "20")
+	form.Set("entry_clock_24h_0", "false")
+	form.Set("entry_clock_style_0", "modern")
+	form.Set("entry_type_1", "message")
+	form.Set("entry_duration_1", "15")
+	form.Set("entry_msg_text_1", "hello")
+	form.Set("entry_msg_direction_1", "up")
+	form.Set("entry_msg_size_1", "small")
+	form.Set("entry_msg_color_1", "#00ff88")
+
+	req := httptest.NewRequest("POST", "/admin/playlists/new", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	pl, err := h.store.GetPlaylist(context.Background(), "amoled-pl")
+	if err != nil || pl == nil || len(pl.Entries) != 2 {
+		t.Fatalf("GetPlaylist = %+v, %v", pl, err)
+	}
+	if c := pl.Entries[0].Widget; c.Style != "modern" || c.Format24h {
+		t.Errorf("clock widget = %+v", c)
+	}
+	if m := pl.Entries[1].Widget; m.Direction != "up" || m.Size != "small" || m.Color != "#00ff88" {
+		t.Errorf("message widget = %+v", m)
 	}
 }

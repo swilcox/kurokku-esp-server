@@ -597,3 +597,44 @@ func TestResetToAlert_NoAlertWidget(t *testing.T) {
 		t.Errorf("index = %d, want 0 (no alert widget, defaults to 0)", state.CurrentIndex)
 	}
 }
+
+func TestResolve_AmoledFieldsPassThrough(t *testing.T) {
+	r, mr := setupResolver(t)
+	ctx := context.Background()
+	device := makeDevice("dev-1")
+	mr.Set("kurokku:test:temp", "72°F")
+
+	pl := makePlaylist(model.PlaylistEntry{
+		ID:          "e-msg",
+		DurationSec: 10,
+		Widget: model.Widget{
+			Type:      "message",
+			Text:      "--",
+			RedisKey:  "kurokku:test:temp",
+			Direction: "up",
+			Color:     "#ff8800",
+			Size:      "large",
+		},
+	})
+	resp, err := r.Resolve(ctx, device, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inst := resp.Instruction
+	if inst == nil {
+		t.Fatal("expected instruction")
+	}
+	if inst.Text != "72°F" || inst.Direction != "up" || inst.Color != "#ff8800" || inst.Size != "large" {
+		t.Fatalf("message instruction = %+v", inst)
+	}
+
+	clock := widgetToInstruction(&model.Widget{Type: "clock", Format24h: true, Style: "modern"}, 10)
+	if clock.Style != "modern" {
+		t.Fatalf("clock style = %q, want modern", clock.Style)
+	}
+	// LED-only playlists are unaffected: empty options are omitted on the wire.
+	plain := widgetToInstruction(&model.Widget{Type: "message", Text: "hi"}, 10)
+	if plain.Direction != "" || plain.Color != "" || plain.Size != "" {
+		t.Fatalf("plain message gained AMOLED options: %+v", plain)
+	}
+}
