@@ -222,6 +222,43 @@ func (r *Resolver) ResetToAlert(ctx context.Context, deviceID string, playlist *
 	return r.setState(ctx, deviceID, state)
 }
 
+// Skip moves a device delta entries along its playlist (1 = next, -1 =
+// previous), passing over cron-inactive entries, so its next poll returns
+// that entry with a fresh duration. Called for device events (a swipe or
+// button on the device). Like any advance, an entry with nothing to show
+// (an alert widget with no alerts) is passed over going forward.
+func (r *Resolver) Skip(ctx context.Context, deviceID string, playlist *model.Playlist, delta int) error {
+	if playlist == nil || len(playlist.Entries) == 0 {
+		return nil
+	}
+	n := len(playlist.Entries)
+	state, err := r.getState(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	cur := 0
+	if state != nil && state.PlaylistVersion == playlist.Version {
+		cur = state.CurrentIndex % n
+	}
+
+	now := time.Now()
+	idx := cur
+	for range n {
+		idx = ((idx+delta)%n + n) % n
+		if entryActive(&playlist.Entries[idx], now) {
+			break
+		}
+	}
+	r.logger.Debug("skip", "device", deviceID, "delta", delta, "from", cur, "to", idx)
+
+	return r.setState(ctx, deviceID, &model.PlaylistState{
+		PlaylistVersion: playlist.Version,
+		CurrentIndex:    idx,
+		StartedAt:       now,
+		ForceAdvance:    true,
+	})
+}
+
 func (r *Resolver) buildInstruction(ctx context.Context, device *model.Device, entry *model.PlaylistEntry) (*model.Instruction, error) {
 	w := &entry.Widget
 
