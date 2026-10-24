@@ -164,6 +164,16 @@ field (or leaving it blank in the form) leaves the device's current value
 untouched. Sending `"syslog_host": ""` via the API explicitly disables syslog on
 the device.
 
+### Quiet Hours
+
+Set `quiet_cron` on a device (admin form or JSON API) to turn its screen off on
+a schedule. While the cron matches (server time, checked per minute like
+playlist entry crons), every poll response carries `"display_off": true`. For
+example, `* 23,0-6 * * *` is 23:00 to 06:59. amoled480 firmware turns the panel
+off, and any button wakes it until a minute after the last input. LED firmware
+ignores the field. An invalid expression never matches, so a typo can't leave
+the screen dark; the device status panel shows it as "invalid cron".
+
 ### Message Widget Templates
 
 `message` widgets can render server-side placeholders at poll time while still sending a normal `"type": "message"` instruction to devices.
