@@ -547,6 +547,47 @@
         .virtual-tm1637 { width: 100%; max-width: 17rem; height: 6.1rem; justify-self: end; }
         .virtual-placeholder { color: var(--text-muted); font-size: 0.82rem; font-style: italic; }
 
+        /* amoled480: a square panel with rounded corners. */
+        .virtual-amoled480 {
+            position: relative;
+            width: 100%;
+            max-width: 15rem;
+            aspect-ratio: 1;
+            justify-self: end;
+            border-radius: 22px;
+            background: #000;
+            flex-direction: column;
+            gap: 0.4rem;
+            color: #ebebeb;
+        }
+        .virtual-amoled480 .v-clock { font-size: 3.4rem; color: #ebebeb; text-shadow: none; font-family: system-ui, sans-serif; font-weight: 600; }
+        .virtual-amoled480 .v-face-led { color: #ff2216; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-shadow: 0 0 10px rgba(255, 34, 22, 0.6); }
+        .virtual-amoled480 .v-face-nixie { color: #eb6e19; font-family: Georgia, serif; font-weight: 400; text-shadow: 0 0 8px rgba(235, 110, 25, 0.85), 0 0 22px rgba(235, 110, 25, 0.45); }
+        .virtual-amoled480 .v-face-flip { color: #ecece6; background: linear-gradient(180deg, #343437 50%, #222225 50%); padding: 0.1rem 0.6rem; border-radius: 8px; letter-spacing: 0.04em; }
+        .v-caption { color: var(--text-muted); font-size: 0.72rem; }
+        .virtual-amoled480 .v-scroll { color: #ebebeb; text-shadow: none; font-family: system-ui, sans-serif; font-size: 2.2rem; }
+        .v-image { width: 100%; height: 100%; object-fit: cover; }
+        .v-crawl {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            text-align: center;
+            font-family: system-ui, sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            padding: 0 1rem;
+        }
+        .v-crawl > span {
+            display: block;
+            padding-top: 100%;
+            animation: v-crawl linear infinite;
+            animation-duration: var(--v-scroll-duration, 10s);
+        }
+        @keyframes v-crawl {
+            from { transform: translateY(0); }
+            to { transform: translateY(-100%); }
+        }
+
         .v-clock {
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-weight: 800;
@@ -794,6 +835,7 @@
             .dashboard-grid { grid-template-columns: 1fr; }
             .status-grid { grid-template-columns: 1fr; }
             .virtual-tm1637, .virtual-max7219 { justify-self: stretch; max-width: none; }
+            .virtual-amoled480 { justify-self: center; }
             .entry-top { grid-template-columns: 1fr 1fr; }
             .entry-panel { grid-template-columns: 1fr 1fr; }
             .entry-field-wide { grid-column: span 2; }
@@ -876,6 +918,14 @@
                     } else {
                         el.style.setProperty('--v-scroll-iter', 'infinite');
                     }
+                    el.dataset.vScrollApplied = '1';
+                });
+                document.querySelectorAll('.v-crawl').forEach(function (el) {
+                    if (el.dataset.vScrollApplied === '1') return;
+                    var speed = parseInt(el.dataset.scrollMs, 10) || 50;
+                    var span = el.querySelector('span');
+                    var lines = span ? Math.ceil(span.textContent.length / 14) : 1;
+                    el.style.setProperty('--v-scroll-duration', ((lines + 8) * speed / 10).toFixed(1) + 's');
                     el.dataset.vScrollApplied = '1';
                 });
             }

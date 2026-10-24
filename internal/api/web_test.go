@@ -9,9 +9,12 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+	"github.com/swilcox/kurokku-esp-server/internal/model"
+	"github.com/swilcox/kurokku-esp-server/internal/playlist"
 	"github.com/swilcox/kurokku-esp-server/internal/store"
 )
 
@@ -173,5 +176,64 @@ func TestImagesPage_Renders(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest("GET", "/admin/images", nil))
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "No images uploaded yet") {
 		t.Fatalf("images page: %d", w.Code)
+	}
+}
+
+func TestBuildStatusView_AmoledPreviewAndQuiet(t *testing.T) {
+	now := time.Now()
+	always, bad := "* * * * *", "nope"
+	status := &model.DeviceStatus{
+		LastSeen:        now,
+		LastInstruction: &model.Instruction{Type: "image", URL: playlist.ImagePath("abc123")},
+	}
+	device := &model.Device{ID: "d", DisplayType: model.DisplayAMOLED480, PollMs: 5000}
+
+	v := buildStatusView(device, status, nil, now)
+	if v.VirtualMode != "image" || v.ImageSrc != "/api/v1/images/abc123.jpg" {
+		t.Errorf("library image: mode %q src %q", v.VirtualMode, v.ImageSrc)
+	}
+	if v.Quiet || v.QuietLabel != "" {
+		t.Errorf("no quiet cron: Quiet %v label %q", v.Quiet, v.QuietLabel)
+	}
+
+	status.LastInstruction = &model.Instruction{Type: "image", URL: "https://example.com/a.qoi"}
+	if v := buildStatusView(device, status, nil, now); v.ImageSrc != "" || v.ImageURL == "" {
+		t.Errorf("external image: src %q url %q", v.ImageSrc, v.ImageURL)
+	}
+
+	device.QuietCron = &always
+	if v := buildStatusView(device, status, nil, now); !v.Quiet || v.QuietLabel != "active" {
+		t.Errorf("quiet: Quiet %v label %q", v.Quiet, v.QuietLabel)
+	}
+	device.QuietCron = &bad
+	if v := buildStatusView(device, status, nil, now); v.Quiet || v.QuietLabel != "invalid cron" {
+		t.Errorf("invalid: Quiet %v label %q", v.Quiet, v.QuietLabel)
+	}
+}
+
+func TestDeviceStatusFragment_RendersAmoledClock(t *testing.T) {
+	h := newTestWebHandler(t)
+	ctx := context.Background()
+	quiet := "0 0 1 1 *"
+	device := &model.Device{ID: "amoled0", DisplayType: model.DisplayAMOLED480, PollMs: 5000, QuietCron: &quiet}
+	if err := h.store.UpsertDevice(ctx, device); err != nil {
+		t.Fatal(err)
+	}
+	f := true
+	if err := h.store.SetDeviceStatus(ctx, "amoled0", &model.DeviceStatus{
+		LastSeen:        time.Now(),
+		LastInstruction: &model.Instruction{Type: "clock", Format24h: &f, Style: "nixie"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/devices/amoled0/status", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	body := w.Body.String()
+	for _, want := range []string{"virtual-amoled480", "v-face-nixie", "nixie face", "Quiet hours", "inactive"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("status fragment missing %q", want)
+		}
 	}
 }
