@@ -32,8 +32,9 @@ type WebHandler struct {
 }
 
 // clockStyles are the faces amoled-kurokku-esp firmware knows, offered in
-// the playlist form; any other stored value is shown as custom.
-var clockStyles = []string{"modern", "led", "flip", "nixie", "railway", "railway-black", "classic"}
+// the playlist form (random picks among the others, switching every quarter
+// hour); any other stored value is shown as custom.
+var clockStyles = []string{"modern", "led", "flip", "nixie", "railway", "railway-black", "classic", "random"}
 
 func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir string) (*WebHandler, error) {
 	w := &WebHandler{
