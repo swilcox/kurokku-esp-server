@@ -13,6 +13,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/swilcox/kurokku-esp-server/internal/model"
+	"github.com/swilcox/kurokku-esp-server/internal/playlist"
 	"github.com/swilcox/kurokku-esp-server/internal/store"
 	"github.com/swilcox/kurokku-esp-server/internal/version"
 )
@@ -333,14 +334,28 @@ type deviceStatusView struct {
 	LastOtaRel         string
 	WidgetDetail       string
 
+	// Quiet hours: QuietLabel is "" (none set), "active", "inactive" or
+	// "invalid cron". Quiet blanks the virtual display.
+	Quiet      bool
+	QuietLabel string
+
 	// Virtual display inputs. VirtualMode is "clock", "message", "animation",
-	// or "" (none/fallback).
+	// "image", "slideshow", or "" (none/fallback).
 	VirtualMode   string
 	Format24h     bool
 	Text          string
 	ScrollSpeedMs int
 	Repeats       int // 0/<0 => infinite loop
 	Animation     string
+	// amoled480 options: clock face, message color ("#RRGGBB") and
+	// direction, image preview URL (library thumbnail; "" for an external
+	// QOI, which browsers can't show), slideshow folder.
+	Style     string
+	Color     string
+	Direction string
+	ImageSrc  string
+	ImageURL  string
+	Path      string
 
 	// ActiveAlerts is the current alert queue in Redis, independent of what
 	// the device is currently displaying. Sorted by priority.
@@ -353,6 +368,17 @@ func buildStatusView(device *model.Device, status *model.DeviceStatus, alerts []
 		Status:       status,
 		HasStatus:    status != nil,
 		ActiveAlerts: sortAlertsByPriority(alerts),
+	}
+
+	if device.QuietCron != nil && *device.QuietCron != "" {
+		switch {
+		case playlist.ValidCron(*device.QuietCron) != nil:
+			v.QuietLabel = "invalid cron"
+		case playlist.Quiet(device, now):
+			v.Quiet, v.QuietLabel = true, "active"
+		default:
+			v.QuietLabel = "inactive"
+		}
 	}
 
 	if status == nil {
@@ -391,9 +417,12 @@ func buildStatusView(device *model.Device, status *model.DeviceStatus, alerts []
 		case "clock":
 			v.VirtualMode = "clock"
 			v.Format24h = inst.Format24h != nil && *inst.Format24h
+			v.Style = inst.Style
 		case "message":
 			v.VirtualMode = "message"
 			v.Text = inst.Text
+			v.Color = inst.Color
+			v.Direction = inst.Direction
 			v.ScrollSpeedMs = inst.ScrollSpeedMs
 			if v.ScrollSpeedMs <= 0 {
 				v.ScrollSpeedMs = 50
@@ -402,9 +431,29 @@ func buildStatusView(device *model.Device, status *model.DeviceStatus, alerts []
 		case "animation":
 			v.VirtualMode = "animation"
 			v.Animation = inst.Animation
+		case "image":
+			v.VirtualMode = "image"
+			v.ImageURL = inst.URL
+			if id, ok := libraryImageID(inst.URL); ok {
+				v.ImageSrc = "/api/v1/images/" + id + ".jpg"
+			}
+		case "slideshow":
+			v.VirtualMode = "slideshow"
+			v.Path = inst.Path
 		}
 	}
 	return v
+}
+
+// libraryImageID extracts the image id from a library image path
+// (playlist.ImagePath).
+func libraryImageID(url string) (string, bool) {
+	id, ok := strings.CutPrefix(url, "/api/v1/images/")
+	if !ok {
+		return "", false
+	}
+	id, ok = strings.CutSuffix(id, ".qoi")
+	return id, ok && id != "" && !strings.Contains(id, "/") && playlist.ImagePath(id) == url
 }
 
 // sortAlertsByPriority returns alerts sorted with lowest priority number
@@ -527,6 +576,10 @@ func (w *WebHandler) deviceFromForm(r *http.Request) *model.Device {
 		if n, err := strconv.Atoi(threshStr); err == nil {
 			d.LowPriorityThreshold = &n
 		}
+	}
+
+	if quiet := strings.TrimSpace(r.FormValue("quiet_cron")); quiet != "" {
+		d.QuietCron = &quiet
 	}
 
 	if sys := strings.TrimSpace(r.FormValue("syslog_host")); sys != "" {
