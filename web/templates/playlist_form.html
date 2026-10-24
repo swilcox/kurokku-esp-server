@@ -76,8 +76,10 @@
                                     <label title="Clock face on AMOLED displays. LED displays ignore it.">Style (AMOLED)</label>
                                     <select name="entry_clock_style_{{$i}}">
                                         <option value="" {{if eq $e.Widget.Style ""}}selected{{end}}>default</option>
-                                        <option value="modern" {{if eq $e.Widget.Style "modern"}}selected{{end}}>modern</option>
-                                        {{if and $e.Widget.Style (ne $e.Widget.Style "modern")}}
+                                        {{range clockStyles}}
+                                        <option value="{{.}}" {{if eq $e.Widget.Style .}}selected{{end}}>{{.}}</option>
+                                        {{end}}
+                                        {{if and $e.Widget.Style (not (knownClockStyle $e.Widget.Style))}}
                                         <option value="{{$e.Widget.Style}}" selected>{{$e.Widget.Style}} (custom)</option>
                                         {{end}}
                                     </select>
@@ -245,7 +247,7 @@
                         <label title="Clock face on AMOLED displays. LED displays ignore it.">Style (AMOLED)</label>
                         <select name="entry_clock_style_0">
                             <option value="" selected>default</option>
-                            <option value="modern">modern</option>
+                            {{range clockStyles}}<option value="{{.}}">{{.}}</option>{{end}}
                         </select>
                     </div>
                 </div>

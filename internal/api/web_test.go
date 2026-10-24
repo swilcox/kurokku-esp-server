@@ -170,6 +170,37 @@ func TestPlaylistCreate_ImageAndSlideshowSaved(t *testing.T) {
 	}
 }
 
+func TestPlaylistForm_ClockStyleOptions(t *testing.T) {
+	h := newTestWebHandler(t)
+	render := func(style string) string {
+		form := url.Values{}
+		form.Set("id", "test-pl")
+		form.Set("name", "Test")
+		form.Set("entry_type_0", "clock")
+		form.Set("entry_duration_0", "30")
+		form.Set("entry_cron_0", "not a cron") // forces a re-render
+		form.Set("entry_clock_style_0", style)
+		req := httptest.NewRequest("POST", "/admin/playlists/new", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		return w.Body.String()
+	}
+
+	body := render("railway")
+	for _, s := range clockStyles {
+		if !strings.Contains(body, `<option value="`+s+`"`) {
+			t.Errorf("missing option %q", s)
+		}
+	}
+	if !strings.Contains(body, `<option value="railway" selected>`) || strings.Contains(body, "(custom)") {
+		t.Errorf("railway should be selected as a known style")
+	}
+	if !strings.Contains(render("sparkle"), `<option value="sparkle" selected>sparkle (custom)</option>`) {
+		t.Errorf("unknown style should be kept as custom")
+	}
+}
+
 func TestImagesPage_Renders(t *testing.T) {
 	h := newTestWebHandler(t)
 	w := httptest.NewRecorder()
