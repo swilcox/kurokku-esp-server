@@ -9,6 +9,12 @@
             <span class="status-label">Last seen</span>
             <span>{{if .HasStatus}}{{.LastSeenRel}}{{else}}never{{end}}</span>
         </div>
+        {{if .QuietLabel}}
+        <div class="status-row">
+            <span class="status-label">Quiet hours</span>
+            <span class="badge badge-{{if .Quiet}}warning{{else if eq .QuietLabel "invalid cron"}}alert{{else}}muted{{end}}">{{.QuietLabel}}</span>
+        </div>
+        {{end}}
         {{if .HasStatus}}
         <div class="status-row">
             <span class="status-label">Remote</span>
@@ -35,13 +41,22 @@
         {{end}}
     </div>
     <div class="virtual-display virtual-{{.Device.DisplayType}}">
-        {{if eq .VirtualMode "clock"}}
-            <div class="v-clock" data-format24h="{{.Format24h}}">--:--</div>
+        {{if .Quiet}}
+            <div class="virtual-placeholder">screen off (quiet hours)</div>
+        {{else if eq .VirtualMode "clock"}}
+            <div class="v-clock v-face-{{if .Style}}{{.Style}}{{else}}default{{end}}" data-format24h="{{.Format24h}}">--:--</div>
+            {{if eq (printf "%s" .Device.DisplayType) "amoled480"}}<div class="v-caption">{{if .Style}}{{.Style}}{{else}}device default{{end}} face</div>{{end}}
+        {{else if eq .VirtualMode "image"}}
+            {{if .ImageSrc}}<img class="v-image" src="{{.ImageSrc}}" alt="">{{else}}<div class="virtual-placeholder mono">{{.ImageURL}}</div>{{end}}
+        {{else if eq .VirtualMode "slideshow"}}
+            <div class="virtual-placeholder">slideshow <span class="mono">{{.Path}}</span></div>
         {{else if eq .VirtualMode "message"}}
             {{if eq (printf "%s" .Device.DisplayType) "tm1637"}}
                 <div class="v-message-tm">{{.Text}}</div>
+            {{else if and (eq (printf "%s" .Device.DisplayType) "amoled480") (eq .Direction "up")}}
+                <div class="v-crawl" data-scroll-ms="{{.ScrollSpeedMs}}"{{if .Color}} style="color: {{.Color}}"{{end}}><span>{{.Text}}</span></div>
             {{else}}
-                <div class="v-scroll" data-scroll-ms="{{.ScrollSpeedMs}}" data-repeats="{{.Repeats}}"><span>{{.Text}}</span></div>
+                <div class="v-scroll" data-scroll-ms="{{.ScrollSpeedMs}}" data-repeats="{{.Repeats}}"{{if .Color}} style="color: {{.Color}}"{{end}}><span>{{.Text}}</span></div>
             {{end}}
         {{else if eq .VirtualMode "animation"}}
             <div class="v-animation">

@@ -28,6 +28,10 @@ type Device struct {
 	// low-priority alert gating when set. Nil falls back to the Resolver default.
 	LowPriorityAlertCron *string `json:"low_priority_alert_cron,omitempty" db:"low_priority_alert_cron"`
 	LowPriorityThreshold *int    `json:"low_priority_threshold,omitempty" db:"low_priority_threshold"`
+	// QuietCron marks quiet hours: while it matches (evaluated per minute,
+	// like playlist entry crons), poll responses carry display_off so the
+	// screen turns off. E.g. "* 23,0-6 * * *" for 23:00-06:59. Nil = never.
+	QuietCron *string `json:"quiet_cron,omitempty" db:"quiet_cron"`
 	// SyslogHost / Tz are pushed to the device as a remote `config` update in
 	// the poll response, so the firmware can persist them to NVS without serial
 	// re-provisioning. Nil = not managed (the firmware keeps its current value).
@@ -113,6 +117,9 @@ type ServerResponse struct {
 	Brightness  *int          `json:"brightness,omitempty"`
 	PollMs      *int          `json:"poll_interval_ms,omitempty"`
 	Config      *DeviceConfig `json:"config,omitempty"`
+	// DisplayOff is set during the device's quiet hours. amoled480 firmware
+	// turns its panel off (a button wakes it briefly); LED firmware ignores it.
+	DisplayOff bool `json:"display_off,omitempty"`
 }
 
 // DeviceConfig is the `config` block in a poll response. It carries persisted

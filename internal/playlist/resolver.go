@@ -16,6 +16,8 @@ import (
 	"github.com/swilcox/kurokku-esp-server/internal/solar"
 )
 
+var cronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+
 var messageTemplatePattern = regexp.MustCompile(`\{\{\s*([a-zA-Z_]+)(?::([^}]*))?\s*\}\}`)
 
 // Resolver determines what a device should display based on its
@@ -164,7 +166,24 @@ func (r *Resolver) Resolve(ctx context.Context, device *model.Device, playlist *
 		Instruction: instruction,
 		Brightness:  &brightness,
 		PollMs:      &pollMs,
+		DisplayOff:  Quiet(device, now),
 	}, nil
+}
+
+// Quiet reports whether the device is in its quiet hours (QuietCron) at now.
+// Unlike entry crons, an invalid expression never matches: a typo must not
+// leave the screen dark.
+func Quiet(device *model.Device, now time.Time) bool {
+	if device.QuietCron == nil || ValidCron(*device.QuietCron) != nil {
+		return false
+	}
+	return cronMatchesNow(*device.QuietCron, now)
+}
+
+// ValidCron parses a five-field cron expression.
+func ValidCron(expr string) error {
+	_, err := cronParser.Parse(expr)
+	return err
 }
 
 // entryActive reports whether a playlist entry's cron schedule (if any)
@@ -176,8 +195,7 @@ func entryActive(e *model.PlaylistEntry, now time.Time) bool {
 // cronMatchesNow checks if a cron expression would have fired within the
 // last 60 seconds relative to now. This gives a 1-minute window for matching.
 func cronMatchesNow(expr string, now time.Time) bool {
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	sched, err := parser.Parse(expr)
+	sched, err := cronParser.Parse(expr)
 	if err != nil {
 		return true // invalid cron = always active
 	}
@@ -523,6 +541,7 @@ func (r *Resolver) defaultResponse(device *model.Device, brightness int) *model.
 		},
 		Brightness: &brightness,
 		PollMs:     &pollMs,
+		DisplayOff: Quiet(device, time.Now()),
 	}
 }
 
@@ -531,6 +550,7 @@ func (r *Resolver) noChangeResponse(device *model.Device, brightness int) *model
 	return &model.ServerResponse{
 		Brightness: &brightness,
 		PollMs:     &pollMs,
+		DisplayOff: Quiet(device, time.Now()),
 	}
 }
 

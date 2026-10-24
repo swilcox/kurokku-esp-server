@@ -122,6 +122,15 @@
 
         <div class="form-row">
             <div class="form-group">
+                <label for="quiet_cron">Quiet Hours Cron (optional)</label>
+                <input type="text" id="quiet_cron" name="quiet_cron"
+                       value="{{if .Device.QuietCron}}{{.Device.QuietCron}}{{end}}"
+                       placeholder="screen off while it matches, server time — e.g. * 23,0-6 * * *">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
                 <label for="syslog_host">Syslog Host (optional)</label>
                 <input type="text" id="syslog_host" name="syslog_host"
                        value="{{if .Device.SyslogHost}}{{.Device.SyslogHost}}{{end}}"
