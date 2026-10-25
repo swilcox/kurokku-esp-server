@@ -1,0 +1,60 @@
+{{define "title"}}クロック — Sounds{{end}}
+
+{{define "content"}}
+<style>
+    .sound-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .sound-card { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .sound-card audio { width: 100%; }
+    .sound-card .sound-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sound-card .sound-meta { font-size: 0.8rem; opacity: 0.75; }
+    .upload-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+    .upload-row .form-group { margin-bottom: 0; }
+</style>
+
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Content</div>
+        <h1>Sounds</h1>
+        <p class="page-copy">Sounds for AMOLED displays. Upload a 16-bit PCM WAV (mono or stereo, 8–48 kHz); pick it as the <em>Sound</em> on any playlist entry and the device plays it once as the entry appears. Each device's volume is on its settings page. LED displays ignore sounds.</p>
+    </div>
+</div>
+
+{{if .Errors}}
+<div class="card mt-1">
+    {{range .Errors}}<p class="error">{{.}}</p>{{end}}
+</div>
+{{end}}
+
+<form class="card" method="post" action="/admin/sounds" enctype="multipart/form-data">
+    <div class="upload-row">
+        <div class="form-group">
+            <label for="file">WAV file</label>
+            <input type="file" id="file" name="file" accept="audio/wav,audio/x-wav,.wav" required>
+        </div>
+        <div class="form-group">
+            <label for="name">Name (optional)</label>
+            <input type="text" id="name" name="name" placeholder="defaults to the file name">
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+</form>
+
+{{if .Sounds}}
+<div class="sound-list">
+    {{range .Sounds}}
+    <div class="card sound-card">
+        <div class="sound-name" title="{{.Name}}">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</div>
+        <audio controls preload="none" src="/api/v1/sounds/{{.ID}}.wav"></audio>
+        <div class="sound-meta"><code>{{.ID}}</code> · {{seconds .DurationMs}} s · {{.SampleRate}} Hz {{if eq .Channels 1}}mono{{else}}stereo{{end}} · {{kb .Bytes}} KB</div>
+        <button class="btn btn-danger btn-sm"
+            hx-delete="/admin/sounds/{{.ID}}"
+            hx-confirm="Delete sound {{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}? Playlist entries using it will play nothing."
+            hx-target="closest .sound-card"
+            hx-swap="outerHTML swap:0.3s">Delete</button>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">No sounds uploaded yet.</div>
+{{end}}
+{{end}}

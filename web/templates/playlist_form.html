@@ -60,6 +60,13 @@
                                 <label title="Optional 5-field cron. Entry only active during matching minutes.">Cron (optional)</label>
                                 <input type="text" name="entry_cron_{{$i}}" value="{{entryCron $e}}" placeholder="*/15 * * * *">
                             </div>
+                            <div class="entry-field">
+                                <label title="Played once as the entry appears, on AMOLED displays. Upload WAVs on the Sounds page.">Sound (AMOLED)</label>
+                                <select name="entry_sound_{{$i}}">
+                                    <option value="">none</option>
+                                    {{range $.Sounds}}<option value="{{.ID}}" {{if eq .ID $e.Widget.SoundID}}selected{{end}}>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</option>{{end}}
+                                </select>
+                            </div>
                             <button type="button" class="btn btn-danger btn-sm entry-delete" onclick="this.closest('.entry-row').remove(); reindex()" title="Remove entry">&#215;</button>
                         </div>
 
@@ -230,6 +237,13 @@
                 <div class="entry-field">
                     <label title="Optional 5-field cron. Entry only active during matching minutes.">Cron (optional)</label>
                     <input type="text" name="entry_cron_0" placeholder="*/15 * * * *">
+                </div>
+                <div class="entry-field">
+                    <label title="Played once as the entry appears, on AMOLED displays. Upload WAVs on the Sounds page.">Sound (AMOLED)</label>
+                    <select name="entry_sound_0">
+                        <option value="" selected>none</option>
+                        {{range $.Sounds}}<option value="{{.ID}}">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</option>{{end}}
+                    </select>
                 </div>
                 <button type="button" class="btn btn-danger btn-sm entry-delete" onclick="this.closest('.entry-row').remove(); reindex()" title="Remove entry">&#215;</button>
             </div>

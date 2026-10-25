@@ -677,3 +677,31 @@ func TestResolve_ImageAndSlideshowOnlyForAmoled(t *testing.T) {
 		t.Fatalf("external image url = %q", ext.URL)
 	}
 }
+
+func TestResolve_SoundOnlyForAmoled(t *testing.T) {
+	r, _ := setupResolver(t)
+	ctx := context.Background()
+	pl := makePlaylist(model.PlaylistEntry{ID: "e-img", DurationSec: 10, Widget: model.Widget{Type: "image", ImageID: "fm", SoundID: "chime"}})
+
+	amoled := makeDevice("amoled")
+	amoled.DisplayType = model.DisplayAMOLED480
+	resp, err := r.Resolve(ctx, amoled, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Instruction == nil || resp.Instruction.Sound != "/api/v1/sounds/chime.wav" {
+		t.Fatalf("amoled instruction = %+v", resp.Instruction)
+	}
+
+	// LED firmware has no speaker: a clock with a sound comes without it.
+	led := makeDevice("led")
+	led.DisplayType = model.DisplayMAX7219
+	clock := makePlaylist(model.PlaylistEntry{ID: "e-clock", DurationSec: 10, Widget: model.Widget{Type: "clock", SoundID: "chime"}})
+	resp, err = r.Resolve(ctx, led, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Instruction == nil || resp.Instruction.Sound != "" {
+		t.Fatalf("led instruction = %+v", resp.Instruction)
+	}
+}
