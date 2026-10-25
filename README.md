@@ -174,6 +174,22 @@ off, and any button wakes it until a minute after the last input. LED firmware
 ignores the field. An invalid expression never matches, so a typo can't leave
 the screen dark; the device status panel shows it as "invalid cron".
 
+### Sounds
+
+amoled480 displays have a speaker. Upload sounds on the admin **Sounds** page
+(or `POST /api/v1/admin/sounds`, multipart `file` plus optional `name`): 16-bit
+PCM WAV, mono or stereo, at 8, 11.025, 16, 22.05, 24, 32, 44.1 or 48 kHz, up to
+4 MB. Other formats are rejected with the reason; convert them first, e.g.
+`afconvert -f WAVE -d LEI16@24000 -c 1 in.m4a out.wav` on macOS.
+
+Any playlist entry can carry a sound (`sound_id` on the widget, the *Sound*
+picker in the form). For amoled480 devices the instruction then includes
+`"sound": "/api/v1/sounds/{id}.wav"`, which the device plays once as the entry
+appears; LED displays never get the field. Set a device's `volume` (0-100; 0 is
+silent) on its form or via the API and every poll response to that amoled480
+device carries it. Left blank, the firmware's default (60) applies. Devices
+don't play sounds during quiet hours.
+
 ### Message Widget Templates
 
 `message` widgets can render server-side placeholders at poll time while still sending a normal `"type": "message"` instruction to devices.

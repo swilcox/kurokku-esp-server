@@ -56,6 +56,11 @@ func (h *Handler) registerRoutes() {
 	h.mux.HandleFunc("POST /api/v1/admin/images", h.handleCreateImage)
 	h.mux.HandleFunc("DELETE /api/v1/admin/images/{image_id}", h.handleDeleteImage)
 
+	h.mux.HandleFunc("GET /api/v1/sounds/{file}", func(w http.ResponseWriter, r *http.Request) { serveSound(h.store, w, r) })
+	h.mux.HandleFunc("GET /api/v1/admin/sounds", h.handleListSounds)
+	h.mux.HandleFunc("POST /api/v1/admin/sounds", h.handleCreateSound)
+	h.mux.HandleFunc("DELETE /api/v1/admin/sounds/{sound_id}", h.handleDeleteSound)
+
 	h.mux.HandleFunc("GET /api/v1/admin/playlists", h.handleListPlaylists)
 	h.mux.HandleFunc("GET /api/v1/admin/playlists/{playlist_id}", h.handleGetPlaylist)
 	h.mux.HandleFunc("PUT /api/v1/admin/playlists/{playlist_id}", h.handleUpsertPlaylist)
@@ -130,6 +135,9 @@ func (h *Handler) handleDeviceInstruction(w http.ResponseWriter, r *http.Request
 		return
 	}
 	resp.Config = deviceConfig(device)
+	if device.DisplayType == model.DisplayAMOLED480 {
+		resp.Volume = device.Volume
+	}
 
 	hasInstruction := resp.Instruction != nil
 	h.logger.Debug("device instruction response",

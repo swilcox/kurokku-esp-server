@@ -32,7 +32,11 @@ func imageMetaKey(id string) string  { return fmt.Sprintf("kurokku:image:%s", id
 func imageQOIKey(id string) string   { return fmt.Sprintf("kurokku:image:%s:qoi", id) }
 func imageThumbKey(id string) string { return fmt.Sprintf("kurokku:image:%s:thumb", id) }
 
+func soundMetaKey(id string) string { return fmt.Sprintf("kurokku:sound:%s", id) }
+func soundWAVKey(id string) string  { return fmt.Sprintf("kurokku:sound:%s:wav", id) }
+
 const imageIndexKey = "kurokku:images"
+const soundIndexKey = "kurokku:sounds"
 const deviceIndexKey = "kurokku:devices"
 const playlistIndexKey = "kurokku:playlists"
 
@@ -366,6 +370,70 @@ func (s *RedisStore) DeleteImage(ctx context.Context, id string) error {
 	_, err := s.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		p.Del(ctx, imageMetaKey(id), imageQOIKey(id), imageThumbKey(id))
 		p.SRem(ctx, imageIndexKey, id)
+		return nil
+	})
+	return err
+}
+
+// --- Sounds ---
+
+// SaveSound stores a library sound: metadata and WAV data.
+func (s *RedisStore) SaveSound(ctx context.Context, snd *model.Sound, wav []byte) error {
+	data, err := json.Marshal(snd)
+	if err != nil {
+		return err
+	}
+	_, err = s.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
+		p.Set(ctx, soundMetaKey(snd.ID), data, 0)
+		p.Set(ctx, soundWAVKey(snd.ID), wav, 0)
+		p.SAdd(ctx, soundIndexKey, snd.ID)
+		return nil
+	})
+	return err
+}
+
+// ListSounds returns library sounds, newest first.
+func (s *RedisStore) ListSounds(ctx context.Context) ([]model.Sound, error) {
+	ids, err := s.rdb.SMembers(ctx, soundIndexKey).Result()
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	keys := make([]string, len(ids))
+	for i, id := range ids {
+		keys[i] = soundMetaKey(id)
+	}
+	vals, err := s.rdb.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+	var sounds []model.Sound
+	for _, v := range vals {
+		if v == nil {
+			continue
+		}
+		var snd model.Sound
+		if err := json.Unmarshal([]byte(v.(string)), &snd); err != nil {
+			return nil, err
+		}
+		sounds = append(sounds, snd)
+	}
+	sort.Slice(sounds, func(i, j int) bool { return sounds[i].CreatedAt.After(sounds[j].CreatedAt) })
+	return sounds, nil
+}
+
+// GetSoundData returns a sound's WAV data, or nil if it doesn't exist.
+func (s *RedisStore) GetSoundData(ctx context.Context, id string) ([]byte, error) {
+	data, err := s.rdb.Get(ctx, soundWAVKey(id)).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	return data, err
+}
+
+func (s *RedisStore) DeleteSound(ctx context.Context, id string) error {
+	_, err := s.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
+		p.Del(ctx, soundMetaKey(id), soundWAVKey(id))
+		p.SRem(ctx, soundIndexKey, id)
 		return nil
 	})
 	return err

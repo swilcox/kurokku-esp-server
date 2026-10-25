@@ -22,7 +22,7 @@
         </div>
         <div class="status-row">
             <span class="status-label">Widget</span>
-            <span>{{if .Status.LastInstruction}}<span class="badge badge-muted">{{.Status.LastInstruction.Type}}</span>{{if .WidgetDetail}} <span class="mono">{{.WidgetDetail}}</span>{{end}}{{else}}—{{end}}</span>
+            <span>{{if .Status.LastInstruction}}<span class="badge badge-muted">{{.Status.LastInstruction.Type}}</span>{{if .WidgetDetail}} <span class="mono">{{.WidgetDetail}}</span>{{end}}{{if .Status.LastInstruction.Sound}} <span class="badge badge-muted" title="{{.Status.LastInstruction.Sound}}">♪ sound</span>{{end}}{{else}}—{{end}}</span>
         </div>
         <div class="status-row">
             <span class="status-label">Sent</span>
