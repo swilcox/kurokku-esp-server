@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,11 @@ type WebHandler struct {
 	mux          *http.ServeMux
 }
 
+// clockStyles are the faces amoled-kurokku-esp firmware knows, offered in
+// the playlist form (random picks among the others, switching every quarter
+// hour); any other stored value is shown as custom.
+var clockStyles = []string{"modern", "led", "flip", "nixie", "railway", "railway-black", "classic", "random"}
+
 func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir string) (*WebHandler, error) {
 	w := &WebHandler{
 		store:       store,
@@ -40,8 +46,12 @@ func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir str
 	}
 
 	funcMap := template.FuncMap{
-		"inc": func(i int) int { return i + 1 },
-		"kb":  func(n int) int { return (n + 512) / 1024 },
+		"inc":         func(i int) int { return i + 1 },
+		"clockStyles": func() []string { return clockStyles },
+		"knownClockStyle": func(s string) bool {
+			return slices.Contains(clockStyles, s)
+		},
+		"kb": func(n int) int { return (n + 512) / 1024 },
 		"entryCron": func(e model.PlaylistEntry) string {
 			return e.CronExpr
 		},
