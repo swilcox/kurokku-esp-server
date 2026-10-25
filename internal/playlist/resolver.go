@@ -277,7 +277,17 @@ func (r *Resolver) Skip(ctx context.Context, deviceID string, playlist *model.Pl
 	})
 }
 
+// buildInstruction builds the instruction for an entry, with its sound
+// attached for amoled480 displays (LED firmware has no speaker).
 func (r *Resolver) buildInstruction(ctx context.Context, device *model.Device, entry *model.PlaylistEntry) (*model.Instruction, error) {
+	inst, err := r.buildWidgetInstruction(ctx, device, entry)
+	if inst != nil && entry.Widget.SoundID != "" && device != nil && device.DisplayType == model.DisplayAMOLED480 {
+		inst.Sound = SoundPath(entry.Widget.SoundID)
+	}
+	return inst, err
+}
+
+func (r *Resolver) buildWidgetInstruction(ctx context.Context, device *model.Device, entry *model.PlaylistEntry) (*model.Instruction, error) {
 	w := &entry.Widget
 
 	switch w.Type {
@@ -474,6 +484,12 @@ func (r *Resolver) buildAlertInstruction(ctx context.Context, device *model.Devi
 // ImagePath is where devices fetch a library image.
 func ImagePath(id string) string {
 	return "/api/v1/images/" + id + ".qoi"
+}
+
+// SoundPath is where devices fetch library sound `id`, relative to the
+// server.
+func SoundPath(id string) string {
+	return "/api/v1/sounds/" + id + ".wav"
 }
 
 func widgetToInstruction(w *model.Widget, durationSec int) *model.Instruction {

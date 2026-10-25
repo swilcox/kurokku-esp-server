@@ -52,6 +52,9 @@ func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir str
 			return slices.Contains(clockStyles, s)
 		},
 		"kb": func(n int) int { return (n + 512) / 1024 },
+		"seconds": func(ms int) string {
+			return strconv.FormatFloat(float64(ms)/1000, 'f', 1, 64)
+		},
 		"entryCron": func(e model.PlaylistEntry) string {
 			return e.CronExpr
 		},
@@ -74,6 +77,7 @@ func NewWebHandler(store *store.RedisStore, logger *slog.Logger, templateDir str
 		"playlists.html",
 		"playlist_form.html",
 		"images.html",
+		"sounds.html",
 	}
 
 	for _, page := range pages {
@@ -126,6 +130,9 @@ func (w *WebHandler) registerRoutes() {
 	w.mux.HandleFunc("GET /admin/images", w.handleImagesList)
 	w.mux.HandleFunc("POST /admin/images", w.handleImageUpload)
 	w.mux.HandleFunc("DELETE /admin/images/{id}", w.handleImageDelete)
+	w.mux.HandleFunc("GET /admin/sounds", w.handleSoundsList)
+	w.mux.HandleFunc("POST /admin/sounds", w.handleSoundUpload)
+	w.mux.HandleFunc("DELETE /admin/sounds/{id}", w.handleSoundDelete)
 
 	w.mux.HandleFunc("GET /admin/playlists", w.handlePlaylistsList)
 	w.mux.HandleFunc("GET /admin/playlists/new", w.handlePlaylistNew)
@@ -591,6 +598,10 @@ func (w *WebHandler) deviceFromForm(r *http.Request) *model.Device {
 	if quiet := strings.TrimSpace(r.FormValue("quiet_cron")); quiet != "" {
 		d.QuietCron = &quiet
 	}
+	if vol, err := strconv.Atoi(strings.TrimSpace(r.FormValue("volume"))); err == nil {
+		vol = min(max(vol, 0), 100)
+		d.Volume = &vol
+	}
 
 	if sys := strings.TrimSpace(r.FormValue("syslog_host")); sys != "" {
 		d.SyslogHost = &sys
@@ -614,6 +625,7 @@ func (w *WebHandler) handlePlaylistNew(rw http.ResponseWriter, r *http.Request) 
 		"IsNew":    true,
 		"Playlist": &model.Playlist{},
 		"Images":   w.images(r.Context()),
+		"Sounds":   w.sounds(r.Context()),
 	})
 }
 
@@ -631,6 +643,7 @@ func (w *WebHandler) handlePlaylistCreate(rw http.ResponseWriter, r *http.Reques
 			"IsNew":    true,
 			"Playlist": pl,
 			"Images":   w.images(r.Context()),
+			"Sounds":   w.sounds(r.Context()),
 			"Errors":   errs,
 		})
 		return
@@ -654,6 +667,7 @@ func (w *WebHandler) handlePlaylistEdit(rw http.ResponseWriter, r *http.Request)
 		"IsNew":    false,
 		"Playlist": pl,
 		"Images":   w.images(r.Context()),
+		"Sounds":   w.sounds(r.Context()),
 	})
 }
 
@@ -667,6 +681,7 @@ func (w *WebHandler) handlePlaylistUpdate(rw http.ResponseWriter, r *http.Reques
 			"IsNew":    false,
 			"Playlist": pl,
 			"Images":   w.images(r.Context()),
+			"Sounds":   w.sounds(r.Context()),
 			"Errors":   errs,
 		})
 		return
@@ -732,6 +747,9 @@ func (w *WebHandler) playlistFromForm(r *http.Request, id string) *model.Playlis
 			}
 		}
 
+		// Any entry may carry a sound (amoled480 only).
+		widget.SoundID = strings.TrimSpace(r.FormValue(fmt.Sprintf("entry_sound_%d", i)))
+
 		pl.Entries = append(pl.Entries, model.PlaylistEntry{
 			ID:          fmt.Sprintf("%s-e%d", pl.ID, i),
 			Position:    i,
@@ -796,6 +814,44 @@ func (w *WebHandler) handleImageUpload(rw http.ResponseWriter, r *http.Request) 
 func (w *WebHandler) handleImageDelete(rw http.ResponseWriter, r *http.Request) {
 	if err := w.store.DeleteImage(r.Context(), r.PathValue("id")); err != nil {
 		w.logger.Error("deleting image", "error", err)
+	}
+	rw.WriteHeader(http.StatusOK)
+}
+
+// --- Sounds ---
+
+// sounds lists the sound library for pickers; errors yield an empty list.
+func (w *WebHandler) sounds(ctx context.Context) []model.Sound {
+	sounds, err := w.store.ListSounds(ctx)
+	if err != nil {
+		w.logger.Error("listing sounds", "error", err)
+	}
+	return sounds
+}
+
+func (w *WebHandler) handleSoundsList(rw http.ResponseWriter, r *http.Request) {
+	w.render(rw, "sounds.html", map[string]any{"Sounds": w.sounds(r.Context())})
+}
+
+func (w *WebHandler) handleSoundUpload(rw http.ResponseWriter, r *http.Request) {
+	f, name, err := soundUploadFromRequest(r)
+	if err == nil {
+		defer f.Close()
+		_, err = createSound(r.Context(), w.store, name, f)
+	}
+	if err != nil {
+		w.render(rw, "sounds.html", map[string]any{
+			"Sounds": w.sounds(r.Context()),
+			"Errors": []string{err.Error()},
+		})
+		return
+	}
+	http.Redirect(rw, r, "/admin/sounds", http.StatusSeeOther)
+}
+
+func (w *WebHandler) handleSoundDelete(rw http.ResponseWriter, r *http.Request) {
+	if err := w.store.DeleteSound(r.Context(), r.PathValue("id")); err != nil {
+		w.logger.Error("deleting sound", "error", err)
 	}
 	rw.WriteHeader(http.StatusOK)
 }

@@ -36,10 +36,13 @@ type Device struct {
 	// the poll response, so the firmware can persist them to NVS without serial
 	// re-provisioning. Nil = not managed (the firmware keeps its current value).
 	// SyslogHost is "host:port" for UDP syslog; Tz is a POSIX TZ string.
-	SyslogHost *string   `json:"syslog_host,omitempty" db:"syslog_host"`
-	Tz         *string   `json:"tz,omitempty" db:"tz"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+	SyslogHost *string `json:"syslog_host,omitempty" db:"syslog_host"`
+	Tz         *string `json:"tz,omitempty" db:"tz"`
+	// Volume is the speaker volume (0-100) for sounds on amoled480
+	// displays; nil leaves the firmware's default. 0 plays nothing.
+	Volume    *int      `json:"volume,omitempty" db:"volume"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // Playlist is an ordered list of widget entries that cycle on a device.
@@ -99,6 +102,10 @@ type Widget struct {
 	// animation
 	Animation string `json:"animation,omitempty"`
 
+	// SoundID (amoled480 only, any widget type): a library sound played
+	// once as the entry appears. Served at /api/v1/sounds/{id}.wav.
+	SoundID string `json:"sound_id,omitempty"`
+
 	// alert — content populated at resolve time from redis
 	AlertSeverity string `json:"alert_severity,omitempty"`
 
@@ -113,10 +120,12 @@ type Widget struct {
 // ServerResponse is the envelope returned to polling devices.
 // Matches the contract in the ESP firmware's CLAUDE.md.
 type ServerResponse struct {
-	Instruction *Instruction  `json:"instruction,omitempty"`
-	Brightness  *int          `json:"brightness,omitempty"`
-	PollMs      *int          `json:"poll_interval_ms,omitempty"`
-	Config      *DeviceConfig `json:"config,omitempty"`
+	Instruction *Instruction `json:"instruction,omitempty"`
+	Brightness  *int         `json:"brightness,omitempty"`
+	// Volume (0-100) for amoled480 speakers; see Device.Volume.
+	Volume *int          `json:"volume,omitempty"`
+	PollMs *int          `json:"poll_interval_ms,omitempty"`
+	Config *DeviceConfig `json:"config,omitempty"`
 	// DisplayOff is set during the device's quiet hours. amoled480 firmware
 	// turns its panel off (a button wakes it briefly); LED firmware ignores it.
 	DisplayOff bool `json:"display_off,omitempty"`
@@ -153,6 +162,9 @@ type Instruction struct {
 	Size         string `json:"size,omitempty"`
 	Path         string `json:"path,omitempty"`
 	IntervalSecs int    `json:"interval_secs,omitempty"`
+	// Sound is a WAV URL to play once as the instruction appears; a
+	// server-relative path for library sounds.
+	Sound string `json:"sound,omitempty"`
 }
 
 // Image is a library image converted for amoled480 displays. The QOI data
@@ -163,6 +175,19 @@ type Image struct {
 	Fit       string    `json:"fit"`
 	Bytes     int       `json:"bytes"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// Sound is a library sound for amoled480 displays: a 16-bit PCM WAV,
+// stored as uploaded. The WAV data is stored separately; see
+// store.SaveSound.
+type Sound struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Bytes      int       `json:"bytes"`
+	SampleRate int       `json:"sample_rate"`
+	Channels   int       `json:"channels"`
+	DurationMs int       `json:"duration_ms"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // PlaylistState is the ephemeral per-device state stored in Redis.
